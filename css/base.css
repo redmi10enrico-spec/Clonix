@@ -1,15 +1,15 @@
-/* BASE STYLES */
+/* BASE STYLES - SOLO TEMA SCURO */
 :root {
-    --bg-app: #fdfbf7;
-    --sidebar-bg: #ffffff;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
+    --bg-app: #0f172a;
+    --sidebar-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
     --accent-orange: #ff9066;
     --accent-blue: #a0d1ff;
     --accent-green: #a2e3c4;
     --accent-purple: #c4b5fd;
-    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-    --border-soft: #f1f5f9;
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    --border-soft: #334155;
 }
 
 * {

@@ -2,27 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Elementi per la navigazione
     const menuItems = document.querySelectorAll('.menu-item');
     const sections = {
-        dashboard: document.querySelector('.main-content:not([style*="display: none"])'),
+        dashboard: document.getElementById('dashboardSection'),
         match: document.getElementById('matchSection'),
         chat: document.getElementById('chatSection'),
         groups: document.getElementById('groupsSection'),
         profile: document.getElementById('profileSection'),
         settings: document.getElementById('settingsSection')
     };
-
-    // Elementi tema scuro
-    const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = themeToggle.querySelector('i');
-    const themeText = themeToggle.querySelector('span');
-    const body = document.body;
-
-    // Carica preferenza tema salvata
-    const savedTheme = localStorage.getItem('clonix-theme');
-    if (savedTheme === 'dark') {
-        body.classList.add('dark-theme');
-        themeIcon.className = 'ph ph-sun';
-        themeText.textContent = 'Tema Chiaro';
-    }
 
     // Elementi chat principale
     const chatInputMain = document.getElementById('chatInputMain');
@@ -156,132 +142,452 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Funzionalità profilo - salvataggio modifiche
-    const saveProfileBtn = document.querySelector('.profile-actions .btn-primary');
-    if (saveProfileBtn) {
-        saveProfileBtn.addEventListener('click', function() {
-            alert('Profilo salvato con successo!');
-        });
-    }
-
-    // Funzionalità aggiunta competenze
-    const addSkillBtn = document.querySelector('.add-skill .btn-primary');
-    const skillInput = document.querySelector('.skill-input');
+    // FUNZIONALITÀ BACKGROUND PERSONALIZZATO
+    const backgroundRadios = document.querySelectorAll('input[name="background"]');
+    const backgroundContainer = document.getElementById('backgroundContainer');
     
-    if (addSkillBtn && skillInput) {
-        addSkillBtn.addEventListener('click', function() {
-            const skillText = skillInput.value.trim();
-            if (skillText) {
-                const skillsContainer = document.querySelector('.skills-container');
-                const newSkill = document.createElement('div');
-                newSkill.className = 'skill-item';
-                newSkill.innerHTML = `
-                    <span>${skillText}</span>
-                    <button class="skill-remove"><i class="ph ph-x"></i></button>
+    // Funzione per creare background dinamico
+    function createBackground(type) {
+        let backgroundHTML = '';
+        
+        switch(type) {
+            case 'cosmic':
+                backgroundHTML = `
+                    <div class="bg-cosmic"></div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                    <div class="stars-bg">
+                        <div class="star"></div>
+                        <div class="star"></div>
+                        <div class="star"></div>
+                        <div class="star"></div>
+                        <div class="star"></div>
+                        <div class="star"></div>
+                        <div class="star"></div>
+                        <div class="star"></div>
+                    </div>
+                    <div class="geometric-bg">
+                        <div class="geo-shape"></div>
+                        <div class="geo-shape"></div>
+                        <div class="geo-shape"></div>
+                        <div class="geo-shape"></div>
+                        <div class="geo-shape"></div>
+                    </div>
                 `;
+                break;
                 
-                // Inserisci prima del div add-skill
-                skillsContainer.insertBefore(newSkill, skillsContainer.querySelector('.add-skill'));
+            case 'ocean':
+                backgroundHTML = `
+                    <div class="bg-ocean"></div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                    <div class="wave-gradient"></div>
+                `;
+                break;
                 
-                // Pulisci input
-                skillInput.value = '';
+            case 'forest':
+                backgroundHTML = `
+                    <div class="bg-forest"></div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                    <div class="grid-pattern"></div>
+                `;
+                break;
                 
-                // Aggiungi event listener per rimozione
-                newSkill.querySelector('.skill-remove').addEventListener('click', function() {
-                    newSkill.remove();
-                });
-            }
-        });
+            case 'aurora':
+                backgroundHTML = `
+                    <div class="bg-aurora"></div>
+                    <div class="light-rays">
+                        <div class="light-ray"></div>
+                        <div class="light-ray"></div>
+                        <div class="light-ray"></div>
+                        <div class="light-ray"></div>
+                    </div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                `;
+                break;
+                
+            case 'mountain':
+                backgroundHTML = `
+                    <div class="bg-mountain"></div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                `;
+                break;
+                
+            case 'desert':
+                backgroundHTML = `
+                    <div class="bg-desert"></div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                `;
+                break;
+                
+            case 'city':
+                backgroundHTML = `
+                    <div class="bg-city"></div>
+                    <div class="particle-container">
+                        <div class="bg-particle"></div>
+                        <div class="bg-particle"></div>
+                    </div>
+                `;
+                break;
+                
+                            
+            default:
+                backgroundHTML = `<div class="bg-cosmic"></div>`;
+        }
+        
+        backgroundContainer.innerHTML = backgroundHTML;
     }
-
-    // Funzionalità rimozione competenze esistenti
-    document.querySelectorAll('.skill-remove').forEach(button => {
-        button.addEventListener('click', function() {
-            this.closest('.skill-item').remove();
+    
+    // Gestione background personalizzato
+    backgroundRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const backgroundType = this.value;
+            
+            // Crea il nuovo background
+            createBackground(backgroundType);
+            
+            // Salva preferenza background
+            localStorage.setItem('clonix-background', backgroundType);
+            
+            // Mostra feedback
+            console.log(`Background cambiato a: ${backgroundType}`);
         });
     });
+    
+    // Carica background salvato
+    const savedBackground = localStorage.getItem('clonix-background');
+    if (savedBackground) {
+        const savedRadio = document.querySelector(`input[name="background"][value="${savedBackground}"]`);
+        if (savedRadio) {
+            savedRadio.checked = true;
+        }
+        createBackground(savedBackground);
+    } else {
+        // Background di default
+        createBackground('cosmic');
+    }
 
-    // Funzionalità tema scuro
-    function toggleTheme() {
-        const isDark = body.classList.contains('dark-theme');
+    // FUNZIONALITÀ PERSONALIZZAZIONE AVANZATA
+    const sidebarLayoutSelect = document.getElementById('sidebarLayout');
+    const cardStyleSelect = document.getElementById('cardStyle');
+    const animationIntensitySelect = document.getElementById('animationIntensity');
+    const hoverEffectsSelect = document.getElementById('hoverEffects');
+    const enableParticlesCheckbox = document.getElementById('enableParticles');
+    const enableSoundsCheckbox = document.getElementById('enableSounds');
+    const enableParallaxCheckbox = document.getElementById('enableParallax');
+    const enableGlowCheckbox = document.getElementById('enableGlow');
+    
+    // Impostazioni Interfaccia
+    const interfaceDensitySelect = document.getElementById('interfaceDensity');
+    const textSizeSelect = document.getElementById('textSize');
+    const showShadowsCheckbox = document.getElementById('showShadows');
+    const showGradientsCheckbox = document.getElementById('showGradients');
+    const showBordersCheckbox = document.getElementById('showBorders');
+    
+    // Gestione Layout Sidebar
+    if (sidebarLayoutSelect) {
+        sidebarLayoutSelect.addEventListener('change', function() {
+            const layout = this.value;
+            document.body.className = document.body.className.replace(/sidebar-layout-\w+/g, '');
+            document.body.classList.add(`sidebar-layout-${layout}`);
+            localStorage.setItem('clonix-sidebar-layout', layout);
+        });
         
-        if (isDark) {
-            // Passa a tema chiaro
-            body.classList.remove('dark-theme');
-            themeIcon.className = 'ph ph-moon';
-            themeText.textContent = 'Tema Scuro';
-            localStorage.setItem('clonix-theme', 'light');
-        } else {
-            // Passa a tema scuro
-            body.classList.add('dark-theme');
-            themeIcon.className = 'ph ph-sun';
-            themeText.textContent = 'Tema Chiaro';
-            localStorage.setItem('clonix-theme', 'dark');
+        const savedSidebarLayout = localStorage.getItem('clonix-sidebar-layout');
+        if (savedSidebarLayout) {
+            sidebarLayoutSelect.value = savedSidebarLayout;
+            document.body.classList.add(`sidebar-layout-${savedSidebarLayout}`);
+        }
+    }
+    
+    // Gestione Stile Card
+    if (cardStyleSelect) {
+        cardStyleSelect.addEventListener('change', function() {
+            const style = this.value;
+            document.body.className = document.body.className.replace(/card-style-\w+/g, '');
+            document.body.classList.add(`card-style-${style}`);
+            localStorage.setItem('clonix-card-style', style);
+        });
+        
+        const savedCardStyle = localStorage.getItem('clonix-card-style');
+        if (savedCardStyle) {
+            cardStyleSelect.value = savedCardStyle;
+            document.body.classList.add(`card-style-${savedCardStyle}`);
+        }
+    }
+    
+    // Gestione Intensità Animazioni
+    if (animationIntensitySelect) {
+        animationIntensitySelect.addEventListener('change', function() {
+            const intensity = this.value;
+            document.body.className = document.body.className.replace(/animation-\w+/g, '');
+            document.body.classList.add(`animation-${intensity}`);
+            localStorage.setItem('clonix-animation-intensity', intensity);
+        });
+        
+        const savedAnimationIntensity = localStorage.getItem('clonix-animation-intensity');
+        if (savedAnimationIntensity) {
+            animationIntensitySelect.value = savedAnimationIntensity;
+            document.body.classList.add(`animation-${savedAnimationIntensity}`);
+        }
+    }
+    
+    // Gestione Effetti Hover
+    if (hoverEffectsSelect) {
+        hoverEffectsSelect.addEventListener('change', function() {
+            const effect = this.value;
+            document.body.className = document.body.className.replace(/hover-\w+/g, '');
+            document.body.classList.add(`hover-${effect}`);
+            localStorage.setItem('clonix-hover-effects', effect);
+        });
+        
+        const savedHoverEffects = localStorage.getItem('clonix-hover-effects');
+        if (savedHoverEffects) {
+            hoverEffectsSelect.value = savedHoverEffects;
+            document.body.classList.add(`hover-${savedHoverEffects}`);
+        }
+    }
+    
+    // Gestione Particelle Interattive
+    if (enableParticlesCheckbox) {
+        enableParticlesCheckbox.addEventListener('change', function() {
+            const enabled = this.checked;
+            if (enabled) {
+                document.body.classList.add('particles-enabled');
+                initParticles();
+            } else {
+                document.body.classList.remove('particles-enabled');
+                removeParticles();
+            }
+            localStorage.setItem('clonix-enable-particles', enabled);
+        });
+        
+        const savedParticles = localStorage.getItem('clonix-enable-particles');
+        if (savedParticles === 'true') {
+            enableParticlesCheckbox.checked = true;
+            document.body.classList.add('particles-enabled');
+            initParticles();
+        }
+    }
+    
+    // Gestione Effetti Sonori
+    if (enableSoundsCheckbox) {
+        enableSoundsCheckbox.addEventListener('change', function() {
+            const enabled = this.checked;
+            if (enabled) {
+                document.body.classList.add('sound-enabled');
+            } else {
+                document.body.classList.remove('sound-enabled');
+            }
+            localStorage.setItem('clonix-enable-sounds', enabled);
+        });
+        
+        const savedSounds = localStorage.getItem('clonix-enable-sounds');
+        if (savedSounds === 'true') {
+            enableSoundsCheckbox.checked = true;
+            document.body.classList.add('sound-enabled');
+        }
+    }
+    
+    // Gestione Effetto Parallax
+    if (enableParallaxCheckbox) {
+        enableParallaxCheckbox.addEventListener('change', function() {
+            const enabled = this.checked;
+            if (enabled) {
+                document.body.classList.add('parallax-enabled');
+                initParallax();
+            } else {
+                document.body.classList.remove('parallax-enabled');
+                removeParallax();
+            }
+            localStorage.setItem('clonix-enable-parallax', enabled);
+        });
+        
+        const savedParallax = localStorage.getItem('clonix-enable-parallax');
+        if (savedParallax === 'true') {
+            enableParallaxCheckbox.checked = true;
+            document.body.classList.add('parallax-enabled');
+            initParallax();
+        }
+    }
+    
+    // Gestione Effetto Luminoso Neon
+    if (enableGlowCheckbox) {
+        enableGlowCheckbox.addEventListener('change', function() {
+            const enabled = this.checked;
+            if (enabled) {
+                document.body.classList.add('glow-enabled');
+            } else {
+                document.body.classList.remove('glow-enabled');
+            }
+            localStorage.setItem('clonix-enable-glow', enabled);
+        });
+        
+        const savedGlow = localStorage.getItem('clonix-enable-glow');
+        if (savedGlow === 'true') {
+            enableGlowCheckbox.checked = true;
+            document.body.classList.add('glow-enabled');
+        }
+    }
+    
+    // Gestione Densità Interfaccia
+    if (interfaceDensitySelect) {
+        interfaceDensitySelect.addEventListener('change', function() {
+            const density = this.value;
+            document.body.className = document.body.className.replace(/interface-density-\w+/g, '');
+            document.body.classList.add(`interface-density-${density}`);
+            localStorage.setItem('clonix-interface-density', density);
+        });
+        
+        const savedInterfaceDensity = localStorage.getItem('clonix-interface-density');
+        if (savedInterfaceDensity) {
+            interfaceDensitySelect.value = savedInterfaceDensity;
+            document.body.classList.add(`interface-density-${savedInterfaceDensity}`);
+        }
+    }
+    
+    // Gestione Dimensione Testo
+    if (textSizeSelect) {
+        textSizeSelect.addEventListener('change', function() {
+            const size = this.value;
+            document.body.className = document.body.className.replace(/text-size-\w+/g, '');
+            document.body.classList.add(`text-size-${size}`);
+            localStorage.setItem('clonix-text-size', size);
+        });
+        
+        const savedTextSize = localStorage.getItem('clonix-text-size');
+        if (savedTextSize) {
+            textSizeSelect.value = savedTextSize;
+            document.body.classList.add(`text-size-${savedTextSize}`);
+        }
+    }
+    
+    // Gestione Mostra Ombre
+    if (showShadowsCheckbox) {
+        showShadowsCheckbox.addEventListener('change', function() {
+            const show = this.checked;
+            if (!show) {
+                document.body.classList.add('no-shadows');
+            } else {
+                document.body.classList.remove('no-shadows');
+            }
+            localStorage.setItem('clonix-show-shadows', show);
+        });
+        
+        const savedShowShadows = localStorage.getItem('clonix-show-shadows');
+        if (savedShowShadows === 'false') {
+            showShadowsCheckbox.checked = false;
+            document.body.classList.add('no-shadows');
+        }
+    }
+    
+    // Gestione Mostra Gradienti
+    if (showGradientsCheckbox) {
+        showGradientsCheckbox.addEventListener('change', function() {
+            const show = this.checked;
+            if (!show) {
+                document.body.classList.add('no-gradients');
+            } else {
+                document.body.classList.remove('no-gradients');
+            }
+            localStorage.setItem('clonix-show-gradients', show);
+        });
+        
+        const savedShowGradients = localStorage.getItem('clonix-show-gradients');
+        if (savedShowGradients === 'false') {
+            showGradientsCheckbox.checked = false;
+            document.body.classList.add('no-gradients');
+        }
+    }
+    
+    // Gestione Mostra Bordi
+    if (showBordersCheckbox) {
+        showBordersCheckbox.addEventListener('change', function() {
+            const show = this.checked;
+            if (!show) {
+                document.body.classList.add('no-borders');
+            } else {
+                document.body.classList.remove('no-borders');
+            }
+            localStorage.setItem('clonix-show-borders', show);
+        });
+        
+        const savedShowBorders = localStorage.getItem('clonix-show-borders');
+        if (savedShowBorders === 'false') {
+            showBordersCheckbox.checked = false;
+            document.body.classList.add('no-borders');
         }
     }
 
-    // Event listener per il toggle tema
-    themeToggle.addEventListener('click', toggleTheme);
-
-    // Aggiungi animazione al toggle
-    themeToggle.addEventListener('mouseenter', function() {
-        this.style.transform = 'translateY(-3px) scale(1.05)';
-    });
-
-    themeToggle.addEventListener('mouseleave', function() {
-        this.style.transform = 'translateY(-2px) scale(1)';
-    });
+    // Funzioni per effetti speciali
+    function initParticles() {
+        document.addEventListener('mousemove', createParticle);
+    }
+    
+    function removeParticles() {
+        document.removeEventListener('mousemove', createParticle);
+        document.querySelectorAll('.particle-trail').forEach(p => p.remove());
+    }
+    
+    function createParticle(e) {
+        if (!document.body.classList.contains('particles-enabled')) return;
+        
+        const particle = document.createElement('div');
+        particle.className = 'particle-trail';
+        particle.style.left = e.clientX + 'px';
+        particle.style.top = e.clientY + 'px';
+        document.body.appendChild(particle);
+        
+        setTimeout(() => particle.remove(), 1000);
+    }
+    
+    function initParallax() {
+        document.addEventListener('scroll', handleParallax);
+    }
+    
+    function removeParallax() {
+        document.removeEventListener('scroll', handleParallax);
+    }
+    
+    function handleParallax() {
+        if (!document.body.classList.contains('parallax-enabled')) return;
+        
+        const scrolled = window.pageYOffset;
+        const parallaxElements = document.querySelectorAll('.stat-card');
+        
+        parallaxElements.forEach((element, index) => {
+            const speed = 0.5 + (index * 0.1);
+            element.style.transform = `translateY(${scrolled * speed}px)`;
+        });
+    }
 
     // FUNZIONALITÀ IMPOSTAZIONI
-    const themeRadios = document.querySelectorAll('input[name="theme"]');
     const notificationCheckboxes = document.querySelectorAll('.notification-settings input[type="checkbox"]');
     const privacyCheckboxes = document.querySelectorAll('.privacy-settings input[type="checkbox"]');
     const settingSelects = document.querySelectorAll('.setting-select');
     const accountButtons = document.querySelectorAll('.account-settings .btn-secondary');
-
-    // Gestione tema personalizzato
-    themeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            const theme = this.value;
-            
-            if (theme === 'light') {
-                body.classList.remove('dark-theme');
-                themeIcon.className = 'ph ph-moon';
-                themeText.textContent = 'Tema Scuro';
-                localStorage.setItem('clonix-theme', 'light');
-            } else if (theme === 'dark') {
-                body.classList.add('dark-theme');
-                themeIcon.className = 'ph ph-sun';
-                themeText.textContent = 'Tema Chiaro';
-                localStorage.setItem('clonix-theme', 'dark');
-            } else if (theme === 'auto') {
-                // Implementazione tema automatico basato su preferenze di sistema
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (prefersDark) {
-                    body.classList.add('dark-theme');
-                    themeIcon.className = 'ph ph-sun';
-                    themeText.textContent = 'Tema Chiaro';
-                } else {
-                    body.classList.remove('dark-theme');
-                    themeIcon.className = 'ph ph-moon';
-                    themeText.textContent = 'Tema Scuro';
-                }
-                localStorage.setItem('clonix-theme', 'auto');
-            }
-            
-            // Salva preferenza tema
-            localStorage.setItem('clonix-theme', theme);
-        });
-    });
-
-    // Carica tema salvato nelle impostazioni
-    const savedThemeSettings = localStorage.getItem('clonix-theme');
-    if (savedThemeSettings) {
-        const savedRadio = document.querySelector(`input[name="theme"][value="${savedThemeSettings}"]`);
-        if (savedRadio) {
-            savedRadio.checked = true;
-        }
-    }
 
     // Gestione notifiche
     notificationCheckboxes.forEach(checkbox => {
@@ -395,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         email: 'andrea.rossi@email.com'
                     },
                     settings: {
-                        theme: localStorage.getItem('clonix-theme'),
+                        background: localStorage.getItem('clonix-background'),
                         notifications: {},
                         privacy: {}
                     },

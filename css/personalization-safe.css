@@ -1,0 +1,462 @@
+/* PERSONALIZZAZIONE AVANZATA - Versione Sicura senza nascondere elementi */
+
+/* Personalizzazione Settings Styles */
+.personalization-settings,
+.interface-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* ========================================
+   LAYOUT SIDEBAR - Non nasconde elementi
+   ======================================== */
+
+.sidebar-layout-default .sidebar {
+    width: 280px;
+}
+
+.sidebar-layout-compact .sidebar {
+    width: 220px;
+}
+
+.sidebar-layout-compact .logo span {
+    display: none;
+}
+
+.sidebar-layout-expanded .sidebar {
+    width: 320px;
+}
+
+.sidebar-layout-minimal .sidebar {
+    width: 200px;
+}
+
+.sidebar-layout-minimal .logo span,
+.sidebar-layout-minimal .menu-item span {
+    display: none;
+}
+
+.sidebar-layout-minimal .sidebar-footer {
+    display: none;
+}
+
+/* ========================================
+   STILE CARD - Non nasconde il contenuto
+   ======================================== */
+
+.card-style-rounded .stat-card,
+.card-style-rounded .match-card,
+.card-style-rounded .group-card,
+.card-style-rounded .settings-card {
+    border-radius: 16px;
+}
+
+.card-style-sharp .stat-card,
+.card-style-sharp .match-card,
+.card-style-sharp .group-card,
+.card-style-sharp .settings-card {
+    border-radius: 0;
+}
+
+.card-style-glass .stat-card,
+.card-style-glass .match-card,
+.card-style-glass .group-card,
+.card-style-glass .settings-card {
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-style-neon .stat-card,
+.card-style-neon .match-card,
+.card-style-neon .group-card,
+.card-style-neon .settings-card {
+    border: 1px solid var(--accent-orange);
+    box-shadow: 0 0 10px rgba(255, 144, 102, 0.3);
+}
+
+.card-style-neon .stat-card:hover,
+.card-style-neon .match-card:hover,
+.card-style-neon .group-card:hover,
+.card-style-neon .settings-card:hover {
+    box-shadow: 0 0 20px rgba(255, 144, 102, 0.5);
+}
+
+/* ========================================
+   INTENSITÀ ANIMAZIONI - Non nasconde elementi
+   ======================================== */
+
+.animation-none * {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+}
+
+.animation-subtle * {
+    animation-duration: 2.0s !important;
+    transition-duration: 1.8s !important;
+}
+
+.animation-normal * {
+    animation-duration: 1.2s !important;
+    transition-duration: 1.0s !important;
+}
+
+.animation-intense * {
+    animation-duration: 0.6s !important;
+    transition-duration: 0.4s !important;
+}
+
+.animation-extreme * {
+    animation-duration: 0.3s !important;
+    transition-duration: 0.2s !important;
+}
+
+/* ========================================
+   EFFETTI HOVER - Non nasconde elementi
+   ======================================== */
+
+.hover-none .btn-primary:hover,
+.hover-none .btn-secondary:hover,
+.hover-none .menu-item:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.hover-simple .btn-primary:hover,
+.hover-simple .btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.hover-glow .btn-primary:hover,
+.hover-glow .btn-secondary:hover {
+    box-shadow: 0 0 20px var(--accent-orange);
+}
+
+.hover-lift .btn-primary:hover,
+.hover-lift .btn-secondary:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+.hover-magnetic .btn-primary,
+.hover-magnetic .btn-secondary {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   PARTICELLE INTERATTIVE - Non interferisce con layout
+   ======================================== */
+
+.particles-enabled .particle-cursor {
+    position: fixed;
+    width: 4px;
+    height: 4px;
+    background: var(--accent-orange);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+}
+
+.particles-enabled .particle-trail {
+    position: fixed;
+    width: 2px;
+    height: 2px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    animation: fadeOut 1s ease-out forwards;
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        transform: scale(0);
+    }
+}
+
+/* ========================================
+   EFFETTI SONORI - Non nasconde elementi
+   ======================================== */
+
+.sound-enabled .btn-primary:active,
+.sound-enabled .btn-secondary:active {
+    position: relative;
+}
+
+.sound-enabled .btn-primary:active::after,
+.sound-enabled .btn-secondary:active::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--accent-orange);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: soundWave 0.6s ease-out forwards;
+}
+
+@keyframes soundWave {
+    to {
+        width: 40px;
+        height: 40px;
+        opacity: 0;
+        border-width: 1px;
+    }
+}
+
+/* ========================================
+   EFFETTO PARALLAX - Non rompe layout
+   ======================================== */
+
+.parallax-enabled .main-content {
+    perspective: 1000px;
+}
+
+.parallax-enabled .stat-card {
+    transform-style: preserve-3d;
+    transition: transform 0.3s ease;
+}
+
+/* ========================================
+   EFFETTO LUMINOSO NEON - Non nasconde elementi
+   ======================================== */
+
+.glow-enabled .btn-primary,
+.glow-enabled .btn-secondary,
+.glow-enabled .menu-item {
+    box-shadow: 0 0 5px rgba(255, 144, 102, 0.3);
+}
+
+.glow-enabled .btn-primary:hover,
+.glow-enabled .btn-secondary:hover,
+.glow-enabled .menu-item:hover {
+    box-shadow: 0 0 15px rgba(255, 144, 102, 0.6);
+}
+
+.glow-enabled .stat-card,
+.glow-enabled .match-card,
+.glow-enabled .group-card,
+.glow-enabled .settings-card {
+    box-shadow: 0 0 10px rgba(255, 144, 102, 0.2);
+}
+
+/* ========================================
+   DENSITÀ INTERFACCIA - Non nasconde elementi
+   ======================================== */
+
+.interface-density-comfortable .section {
+    margin-bottom: 3rem;
+}
+
+.interface-density-comfortable .stats-grid,
+.interface-density-comfortable .matches-list,
+.interface-density-comfortable .activity-list,
+.interface-density-comfortable .dashboard-grid,
+.interface-density-comfortable .settings-grid {
+    gap: 2rem;
+}
+
+.interface-density-normal .section {
+    margin-bottom: 2rem;
+}
+
+.interface-density-normal .stats-grid,
+.interface-density-normal .matches-list,
+.interface-density-normal .activity-list,
+.interface-density-normal .dashboard-grid,
+.interface-density-normal .settings-grid {
+    gap: 1.5rem;
+}
+
+.interface-density-compact .section {
+    margin-bottom: 1rem;
+}
+
+.interface-density-compact .stats-grid,
+.interface-density-compact .matches-list,
+.interface-density-compact .activity-list,
+.interface-density-compact .dashboard-grid,
+.interface-density-compact .settings-grid {
+    gap: 1rem;
+}
+
+.interface-density-compact .stat-card,
+.interface-density-compact .match-card,
+.interface-density-compact .group-card,
+.interface-density-compact .settings-card {
+    padding: 1rem;
+}
+
+/* ========================================
+   DIMENSIONE TESTO - Non nasconde elementi
+   ======================================== */
+
+.text-size-small {
+    font-size: 14px;
+}
+
+.text-size-small h1 {
+    font-size: 1.8rem;
+}
+
+.text-size-small h2 {
+    font-size: 1.5rem;
+}
+
+.text-size-small h3 {
+    font-size: 1.3rem;
+}
+
+.text-size-medium {
+    font-size: 16px;
+}
+
+.text-size-medium h1 {
+    font-size: 2rem;
+}
+
+.text-size-medium h2 {
+    font-size: 1.6rem;
+}
+
+.text-size-medium h3 {
+    font-size: 1.4rem;
+}
+
+.text-size-large {
+    font-size: 18px;
+}
+
+.text-size-large h1 {
+    font-size: 2.4rem;
+}
+
+.text-size-large h2 {
+    font-size: 1.8rem;
+}
+
+.text-size-large h3 {
+    font-size: 1.6rem;
+}
+
+.text-size-xlarge {
+    font-size: 20px;
+}
+
+.text-size-xlarge h1 {
+    font-size: 3rem;
+}
+
+.text-size-xlarge h2 {
+    font-size: 2rem;
+}
+
+.text-size-xlarge h3 {
+    font-size: 1.8rem;
+}
+
+/* ========================================
+   MOSTRA/NASCONDI OMBCRE - Non nasconde elementi
+   ======================================== */
+
+.no-shadows .stat-card,
+.no-shadows .match-card,
+.no-shadows .group-card,
+.no-shadows .settings-card,
+.no-shadows .btn-primary,
+.no-shadows .btn-secondary {
+    box-shadow: none;
+}
+
+/* ========================================
+   MOSTRA/NASCONDI GRADIENTI - Non nasconde elementi
+   ======================================== */
+
+.no-gradients .bg-orange {
+    background: var(--accent-orange);
+}
+
+.no-gradients .bg-blue {
+    background: var(--accent-blue);
+}
+
+.no-gradients .bg-green {
+    background: var(--accent-green);
+}
+
+.no-gradients .bg-purple {
+    background: var(--accent-purple);
+}
+
+.no-gradients .btn-primary,
+.no-gradients .btn-secondary {
+    background: var(--accent-orange);
+}
+
+/* ========================================
+   MOSTRA/NASCONDI BORDI - Non nasconde elementi
+   ======================================== */
+
+.no-borders .stat-card,
+.no-borders .match-card,
+.no-borders .group-card,
+.no-borders .settings-card {
+    border: none;
+}
+
+.no-borders .btn-primary,
+.no-borders .btn-secondary {
+    border: none;
+}
+
+/* ========================================
+   COMPATIBILITÀ BACKGROUND - Non interferisce
+   ======================================== */
+
+#backgroundContainer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* ========================================
+   STILI AGGIUNTIVI PER LE IMPOSTAZIONI
+   ======================================== */
+
+.setting-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: var(--bg-app);
+    color: var(--text-main);
+    font-size: 14px;
+}
+
+.setting-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.setting-text {
+    margin-left: 0.5rem;
+    color: var(--text-main);
+}
+
+.setting-item p {
+    margin-top: 0.25rem;
+    font-size: 12px;
+    color: var(--text-secondary);
+}

@@ -15,20 +15,27 @@
     <link rel="stylesheet" href="css/profile.css">
     <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="css/dark-theme.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/background-effects.css">
+    <link rel="stylesheet" href="css/personalization-safe.css">
     <!-- Font: Plus Jakarta Sans per un look moderno -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
     <!-- Icone: Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
-<body>
+<body class="dark-theme">
+    <!-- Dynamic Background Container -->
+    <div id="backgroundContainer">
+        <!-- Background will be dynamically inserted here -->
+    </div>
 
     <div class="app-container">
         
         <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="logo">
-                <img src="assets/Clonix-No-Background.png" alt="Clonix Logo" class="logo-img">
-                <span>Clonix</span>
+                <img src="assets/Clonix-No-Background.png" alt="Clonix Logo" class="logo-img animate-hologram">
+                <span class="neon-text">Clonix</span>
             </div>
 
             <nav class="menu">
@@ -46,25 +53,22 @@
         </aside>
 
         <!-- MAIN DASHBOARD -->
-        <main class="main-content">
-            <header class="main-header">
-                <div class="header-content">
-                    <div>
-                        <h1>Ciao, Andrea! 👋</h1>
-                        <p>Trova il tuo compagno di studio o lavoro ideale.</p>
+        <main class="main-content" id="dashboardSection">
+                <header class="main-header">
+                    <div class="header-content">
+                        <div>
+                            <h1>Ciao, Andrea! 👋</h1>
+                            <p>Trova il tuo compagno di studio o lavoro ideale.</p>
                     </div>
                     <div class="header-actions">
                         <button class="btn-secondary">
                             <i class="ph ph-bell"></i>
                             <span class="notification-badge">3</span>
                         </button>
-                        <button class="btn-primary">
+                        <button class="btn-primary advanced morph-button">
                             <i class="ph ph-plus"></i> Nuovo Match
                         </button>
                     </div>
-                    <button class="btn-toggle-theme">
-                        <i class="ph ph-moon"></i>
-                    </button>
                 </div>
             </header>
 
@@ -603,42 +607,220 @@
 
             <section class="section">
                 <div class="settings-grid">
-                    <!-- Impostazioni Tema -->
+                    <!-- Impostazioni Background -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div class="settings-icon bg-purple">
+                                <i class="ph ph-sparkle"></i>
+                            </div>
+                            <h2>Background</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="background-options">
+                                <label class="background-option">
+                                    <input type="radio" name="background" value="cosmic" checked>
+                                    <span class="background-preview cosmic-bg">
+                                        <div class="preview-mini">
+                                            <div class="mini-particle"></div>
+                                            <div class="mini-star"></div>
+                                        </div>
+                                        <span>Cosmico</span>
+                                    </span>
+                                </label>
+                                <label class="background-option">
+                                    <input type="radio" name="background" value="forest">
+                                    <span class="background-preview forest-bg">
+                                        <div class="preview-mini">
+                                            <div class="mini-leaf"></div>
+                                            <div class="mini-tree"></div>
+                                        </div>
+                                        <span>Foresta</span>
+                                    </span>
+                                </label>
+                                <label class="background-option">
+                                    <input type="radio" name="background" value="aurora">
+                                    <span class="background-preview aurora-bg">
+                                        <div class="preview-mini">
+                                            <div class="mini-aurora"></div>
+                                            <div class="mini-light"></div>
+                                        </div>
+                                        <span>Aurora</span>
+                                    </span>
+                                </label>
+                                <label class="background-option">
+                                    <input type="radio" name="background" value="mountain">
+                                    <span class="background-preview mountain-bg">
+                                        <div class="preview-mini">
+                                            <div class="mini-mountain"></div>
+                                            <div class="mini-peak"></div>
+                                        </div>
+                                        <span>Montagne</span>
+                                    </span>
+                                </label>
+                                <label class="background-option">
+                                    <input type="radio" name="background" value="desert">
+                                    <span class="background-preview desert-bg">
+                                        <div class="preview-mini">
+                                            <div class="mini-dune"></div>
+                                            <div class="mini-sand"></div>
+                                        </div>
+                                        <span>Deserto</span>
+                                    </span>
+                                </label>
+                                <label class="background-option">
+                                    <input type="radio" name="background" value="city">
+                                    <span class="background-preview city-bg">
+                                        <div class="preview-mini">
+                                            <div class="mini-building"></div>
+                                            <div class="mini-tower"></div>
+                                        </div>
+                                        <span>Città</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Impostazioni Personalizzazione -->
                     <div class="settings-card">
                         <div class="settings-header">
                             <div class="settings-icon bg-orange">
                                 <i class="ph ph-palette"></i>
                             </div>
-                            <h2>Tema</h2>
+                            <h2>Personalizzazione Avanzata</h2>
                         </div>
                         <div class="settings-content">
-                            <div class="theme-options">
-                                <label class="theme-option">
-                                    <input type="radio" name="theme" value="light" checked>
-                                    <span class="theme-preview light-theme">
-                                        <i class="ph ph-sun"></i>
-                                        <span>Chiaro</span>
-                                    </span>
-                                </label>
-                                <label class="theme-option">
-                                    <input type="radio" name="theme" value="dark">
-                                    <span class="theme-preview dark-theme">
-                                        <i class="ph ph-moon"></i>
-                                        <span>Scuro</span>
-                                    </span>
-                                </label>
-                                <label class="theme-option">
-                                    <input type="radio" name="theme" value="auto">
-                                    <span class="theme-preview auto-theme">
-                                        <i class="ph ph-desktop"></i>
-                                        <span>Automatico</span>
-                                    </span>
-                                </label>
+                            <div class="personalization-settings">
+                                <div class="setting-item">
+                                    <label class="setting-label">Layout Sidebar</label>
+                                    <select class="setting-select" id="sidebarLayout">
+                                        <option value="default">Default</option>
+                                        <option value="compact">Compatto</option>
+                                        <option value="expanded">Espanso</option>
+                                        <option value="minimal">Minimale</option>
+                                    </select>
+                                    <p>Personalizza la dimensione e stile della sidebar</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">Stile Card</label>
+                                    <select class="setting-select" id="cardStyle">
+                                        <option value="default">Default</option>
+                                        <option value="rounded">Arrotondato</option>
+                                        <option value="sharp">Angoli Sposi</option>
+                                        <option value="glass">Glassmorphism</option>
+                                        <option value="neon">Neon</option>
+                                    </select>
+                                    <p>Scegli lo stile delle card e dei pannelli</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">Intensità Animazioni</label>
+                                    <select class="setting-select" id="animationIntensity">
+                                        <option value="none">Nessuna</option>
+                                        <option value="subtle">Sottile</option>
+                                        <option value="normal">Normale</option>
+                                        <option value="intense">Intensa</option>
+                                        <option value="extreme">Estrema</option>
+                                    </select>
+                                    <p>Controlla l'intensità delle animazioni e transizioni</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">Effetti Hover</label>
+                                    <select class="setting-select" id="hoverEffects">
+                                        <option value="none">Nessuno</option>
+                                        <option value="simple">Semplice</option>
+                                        <option value="glow">Luminoso</option>
+                                        <option value="lift">Alzata</option>
+                                        <option class="magnetic">Magnetico</option>
+                                    </select>
+                                    <p>Personalizza gli effetti al passaggio del mouse</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="enableParticles">
+                                        <span class="setting-text">Particelle Interattive</span>
+                                    </label>
+                                    <p>Abilita particelle che seguono il mouse</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="enableSounds">
+                                        <span class="setting-text">Effetti Sonori</span>
+                                    </label>
+                                    <p>Abilita suoni per interazioni e notifiche</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="enableParallax">
+                                        <span class="setting-text">Effetto Parallax</span>
+                                    </label>
+                                    <p>Abilita effetto profondità 3D nello scrolling</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="enableGlow">
+                                        <span class="setting-text">Effetto Luminoso Neon</span>
+                                    </label>
+                                    <p>Aggiungi glow neon a elementi interattivi</p>
+                                </div>
                             </div>
-                            <p class="settings-description">Scegli il tema preferito o imposta automatico in base al sistema.</p>
                         </div>
                     </div>
 
+                    <!-- Impostazioni Interfaccia -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div class="settings-icon bg-blue">
+                                <i class="ph ph-layout"></i>
+                            </div>
+                            <h2>Interfaccia</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="interface-settings">
+                                <div class="setting-item">
+                                    <label class="setting-label">Densità Interfaccia</label>
+                                    <select class="setting-select" id="interfaceDensity">
+                                        <option value="comfortable">Comoda</option>
+                                        <option value="normal">Normale</option>
+                                        <option value="compact">Compatta</option>
+                                    </select>
+                                    <p>Regola la spaziatura tra gli elementi</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">Dimensione Testo</label>
+                                    <select class="setting-select" id="textSize">
+                                        <option value="small">Piccolo</option>
+                                        <option value="medium" selected>Medio</option>
+                                        <option value="large">Grande</option>
+                                        <option value="xlarge">Molto Grande</option>
+                                    </select>
+                                    <p>Adatta la dimensione del testo per migliore leggibilità</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="showShadows">
+                                        <span class="setting-text">Effetti Ombra</span>
+                                    </label>
+                                    <p>Aggiungi o rimuovi le ombre per profondità</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="showGradients">
+                                        <span class="setting-text">Gradienti Colorati</span>
+                                    </label>
+                                    <p>Usa gradienti colorati invece di colori solidi</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="showBorders">
+                                        <span class="setting-text">Bordi Definiti</span>
+                                    </label>
+                                    <p>Mostra bordi netti tra gli elementi</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
                     <!-- Impostazioni Notifiche -->
                     <div class="settings-card">
                         <div class="settings-header">
@@ -889,12 +1071,6 @@
         </main>
 
     </div>
-
-    <!-- Theme Toggle -->
-    <button class="theme-toggle" id="themeToggle">
-        <i class="ph ph-moon"></i>
-        <span>Tema Scuro</span>
-    </button>
 
     <script src="script.js"></script>
 </body>
