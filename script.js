@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
 
     // Carica preferenza tema salvata
-    const savedTheme = localStorage.getItem('vibemach-theme');
+    const savedTheme = localStorage.getItem('clonix-theme');
     if (savedTheme === 'dark') {
         body.classList.add('dark-theme');
         themeIcon.className = 'ph ph-sun';
@@ -210,13 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
             body.classList.remove('dark-theme');
             themeIcon.className = 'ph ph-moon';
             themeText.textContent = 'Tema Scuro';
-            localStorage.setItem('vibemach-theme', 'light');
+            localStorage.setItem('clonix-theme', 'light');
         } else {
             // Passa a tema scuro
             body.classList.add('dark-theme');
             themeIcon.className = 'ph ph-sun';
             themeText.textContent = 'Tema Chiaro';
-            localStorage.setItem('vibemach-theme', 'dark');
+            localStorage.setItem('clonix-theme', 'dark');
         }
     }
 
@@ -248,12 +248,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 body.classList.remove('dark-theme');
                 themeIcon.className = 'ph ph-moon';
                 themeText.textContent = 'Tema Scuro';
-                localStorage.setItem('vibemach-theme', 'light');
+                localStorage.setItem('clonix-theme', 'light');
             } else if (theme === 'dark') {
                 body.classList.add('dark-theme');
                 themeIcon.className = 'ph ph-sun';
                 themeText.textContent = 'Tema Chiaro';
-                localStorage.setItem('vibemach-theme', 'dark');
+                localStorage.setItem('clonix-theme', 'dark');
             } else if (theme === 'auto') {
                 // Implementazione tema automatico basato su preferenze di sistema
                 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -266,16 +266,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     themeIcon.className = 'ph ph-moon';
                     themeText.textContent = 'Tema Scuro';
                 }
-                localStorage.setItem('vibemach-theme', 'auto');
+                localStorage.setItem('clonix-theme', 'auto');
             }
             
             // Salva preferenza tema
-            localStorage.setItem('vibemach-theme', theme);
+            localStorage.setItem('clonix-theme', theme);
         });
     });
 
     // Carica tema salvato nelle impostazioni
-    const savedThemeSettings = localStorage.getItem('vibemach-theme');
+    const savedThemeSettings = localStorage.getItem('clonix-theme');
     if (savedThemeSettings) {
         const savedRadio = document.querySelector(`input[name="theme"][value="${savedThemeSettings}"]`);
         if (savedRadio) {
@@ -395,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         email: 'andrea.rossi@email.com'
                     },
                     settings: {
-                        theme: localStorage.getItem('vibemach-theme'),
+                        theme: localStorage.getItem('clonix-theme'),
                         notifications: {},
                         privacy: {}
                     },
@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dataStr = JSON.stringify(userData, null, 2);
                 const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
                 
-                const exportFileDefaultName = `vibemach-data-${new Date().toISOString().split('T')[0]}.json`;
+                const exportFileDefaultName = `clonix-data-${new Date().toISOString().split('T')[0]}.json`;
                 
                 const linkElement = document.createElement('a');
                 linkElement.setAttribute('href', dataUri);
