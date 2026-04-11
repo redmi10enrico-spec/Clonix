@@ -1,0 +1,89 @@
+/* BASE STYLES */
+:root {
+    --bg-app: #fdfbf7;
+    --sidebar-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --accent-orange: #ff9066;
+    --accent-blue: #a0d1ff;
+    --accent-green: #a2e3c4;
+    --accent-purple: #c4b5fd;
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+    --border-soft: #f1f5f9;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* TYPOGRAPHY */
+h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+}
+
+h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+h4 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+p {
+    line-height: 1.5;
+}
+
+/* LAYOUT */
+.main-content {
+    flex: 1;
+    padding: 3rem;
+    overflow-y: auto;
+}
+
+.section {
+    margin-top: 3rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+}
+
+/* UTILITIES */
+.text-center {
+    text-align: center;
+}
+
+.mb-1 { margin-bottom: 1rem; }
+.mb-2 { margin-bottom: 2rem; }
+.mb-3 { margin-bottom: 3rem; }
+
+.mt-1 { margin-top: 1rem; }
+.mt-2 { margin-top: 2rem; }
+.mt-3 { margin-top: 3rem; }

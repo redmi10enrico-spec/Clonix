@@ -1,0 +1,294 @@
+/* DARK THEME STYLES */
+.dark-theme {
+    --bg-app: #0a0a0a;
+    --sidebar-bg: #1a1a1a;
+    --text-main: #e5e5e5;
+    --text-muted: #a0a0a0;
+    --accent-orange: #ff9066;
+    --accent-blue: #60a5fa;
+    --accent-green: #4ade80;
+    --accent-purple: #c084fc;
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    --border-soft: #2a2a2a;
+}
+
+.dark-theme body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+}
+
+/* Dark theme for cards */
+.dark-theme .stat-card,
+.dark-theme .match-item,
+.dark-theme .activity-item,
+.dark-theme .goal-item,
+.dark-theme .group-banner,
+.dark-theme .match-card-detailed,
+.dark-theme .group-card,
+.dark-theme .profile-sidebar,
+.dark-theme .profile-main,
+.dark-theme .chat-container,
+.dark-theme .chat-panel,
+.dark-theme .filter-bar {
+    background: var(--sidebar-bg);
+    border-color: var(--border-soft);
+}
+
+/* Dark theme for inputs and selects */
+.dark-theme .filter-select,
+.dark-theme .search-input,
+.dark-theme .chat-input-main input,
+.dark-theme .chat-input-area input,
+.dark-theme .form-input,
+.dark-theme .form-textarea,
+.dark-theme .skill-input {
+    background: var(--bg-app);
+    border-color: var(--border-soft);
+    color: var(--text-main);
+}
+
+.dark-theme .filter-select:focus,
+.dark-theme .search-input:focus,
+.dark-theme .chat-input-main input:focus,
+.dark-theme .chat-input-area input:focus,
+.dark-theme .form-input:focus,
+.dark-theme .form-textarea:focus,
+.dark-theme .skill-input:focus {
+    border-color: var(--accent-orange);
+}
+
+/* Dark theme for sidebar */
+.dark-theme .sidebar {
+    background: var(--sidebar-bg);
+    border-color: var(--border-soft);
+}
+
+/* Dark theme for menu items */
+.dark-theme .menu-item:hover,
+.dark-theme .menu-item.active {
+    background: rgba(255, 144, 102, 0.1);
+    color: var(--accent-orange);
+}
+
+/* Dark theme for progress bars */
+.dark-theme .progress-bar {
+    background: var(--border-soft);
+}
+
+/* Dark theme for messages */
+.dark-theme .received {
+    background: var(--border-soft);
+    color: var(--text-main);
+}
+
+/* Dark theme for chat items */
+.dark-theme .chat-item:hover,
+.dark-theme .chat-item.active {
+    background: var(--bg-app);
+}
+
+/* Dark theme for group banner gradient */
+.dark-theme .group-banner {
+    background: linear-gradient(135deg, var(--sidebar-bg) 0%, rgba(255, 144, 102, 0.1) 100%);
+}
+
+/* Dark theme for buttons */
+.dark-theme .btn-secondary {
+    background: var(--sidebar-bg);
+    border-color: var(--border-soft);
+    color: var(--text-main);
+}
+
+.dark-theme .btn-secondary:hover {
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+}
+
+/* Dark theme for tag small */
+.dark-theme .tag-small,
+.dark-theme .skill-tag {
+    background: var(--border-soft);
+    color: var(--text-muted);
+}
+
+/* Dark theme for compatibility score */
+.dark-theme .compatibility-score {
+    background: var(--accent-green);
+    color: white;
+}
+
+/* Dark theme for status badges */
+.dark-theme .status-badge.active {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+.dark-theme .status-badge.upcoming {
+    background: rgba(255, 144, 102, 0.15);
+    color: #ff9066;
+}
+
+/* Dark theme for skill items in profile */
+.dark-theme .skill-item {
+    background: var(--accent-orange);
+    color: white;
+}
+
+/* Dark theme for switches */
+.dark-theme .slider {
+    background-color: var(--border-soft);
+}
+
+.dark-theme input:checked + .slider {
+    background-color: var(--accent-orange);
+}
+
+/* Dark theme for borders and dividers */
+.dark-theme .chat-sidebar,
+.dark-theme .chat-header-main,
+.dark-theme .chat-input-main,
+.dark-theme .chat-search,
+.dark-theme .profile-actions {
+    border-color: var(--border-soft);
+}
+
+/* Dark theme for hover states */
+.dark-theme .btn-icon:hover {
+    background: var(--border-soft);
+    color: var(--accent-orange);
+}
+
+/* Dark theme for member circles */
+.dark-theme .m-circle {
+    background: var(--border-soft);
+}
+
+.dark-theme .m-circle.empty {
+    background: var(--border-soft);
+    border-color: var(--text-muted);
+}
+
+/* Dark theme for progress circle */
+.dark-theme .progress-circle {
+    border-color: var(--border-soft);
+}
+
+/* Dark theme for online indicator */
+.dark-theme .online-indicator {
+    color: #4ade80;
+}
+
+/* Dark theme for chat badge */
+.dark-theme .chat-badge {
+    background: var(--accent-orange);
+    color: white;
+}
+
+/* Dark theme for chat messages */
+.dark-theme .msg {
+    color: var(--text-main);
+}
+
+.dark-theme .msg-user {
+    color: var(--text-muted);
+}
+
+/* Dark theme for all remaining elements */
+.dark-theme .main-header h1,
+.dark-theme .main-header p,
+.dark-theme .section h2,
+.dark-theme .form-group label,
+.dark-theme .profile-section h2,
+.dark-theme .groups-header h2,
+.dark-theme .match-header h3,
+.dark-theme .match-title,
+.dark-theme .match-bio,
+.dark-theme .group-card h3,
+.dark-theme .group-card p,
+.dark-theme .profile-avatar-large,
+.dark-theme .stat-content h3,
+.dark-theme .stat-content p,
+.dark-theme .activity-content p,
+.dark-theme .goal-info h4,
+.dark-theme .goal-info p,
+.dark-theme .chat-header-info h3,
+.dark-theme .chat-info h4,
+.dark-theme .chat-info p {
+    color: var(--text-main);
+}
+
+.dark-theme .stat-change.positive,
+.dark-theme .stat-change.neutral,
+.dark-theme .activity-time,
+.dark-theme .goal-percentage,
+.dark-theme .group-progress span,
+.dark-theme .group-members,
+.dark-theme .chat-time,
+.dark-theme .online-status {
+    color: var(--text-muted);
+}
+
+.dark-theme .progress-circle .percentage,
+.dark-theme .progress-text {
+    color: var(--text-main);
+}
+
+.dark-theme .theme-toggle {
+    background: var(--sidebar-bg);
+    border-color: var(--border-soft);
+}
+
+.dark-theme .theme-toggle i,
+.dark-theme .theme-toggle span {
+    color: var(--text-main);
+}
+
+.dark-theme .theme-toggle:hover {
+    border-color: var(--accent-orange);
+}
+
+.dark-theme .theme-toggle:hover i {
+    color: var(--accent-orange);
+}
+
+/* Dark theme for button text - make it black for readability */
+.dark-theme .btn-primary,
+.dark-theme .btn-secondary,
+.dark-theme .btn-small,
+.dark-theme .btn-text,
+.dark-theme .connectButtons,
+.dark-theme .messageButtons,
+.dark-theme .groupButtons,
+.dark-theme .saveProfileBtn,
+.dark-theme .addSkillBtn {
+    color: #000000 !important;
+}
+
+.dark-theme .btn-primary:hover,
+.dark-theme .btn-secondary:hover,
+.dark-theme .btn-small:hover {
+    color: #000000 !important;
+}
+
+/* Dark theme for specific button text */
+.dark-theme .match-actions button,
+.dark-theme .group-actions button,
+.dark-theme .profile-actions button {
+    color: #000000 !important;
+}
+
+.dark-theme .match-actions button:hover,
+.dark-theme .group-actions button:hover,
+.dark-theme .profile-actions button:hover {
+    color: #000000 !important;
+}
+
+/* Dark theme for skill items */
+.dark-theme .skill-item {
+    background: var(--accent-orange);
+    color: #000000 !important;
+}
+
+.dark-theme .skill-remove {
+    color: #000000 !important;
+}

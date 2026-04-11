@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeMatch | Community Dashboard</title>
+    <!-- CSS Modulari -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/match.css">
+    <link rel="stylesheet" href="css/chat.css">
+    <link rel="stylesheet" href="css/groups.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/dark-theme.css">
+    <!-- Font: Plus Jakarta Sans per un look moderno -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Icone: Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">*</div>
+                <span>VibeMatch</span>
+            </div>
+
+            <nav class="menu">
+                <a href="#" class="menu-item active"><i class="ph ph-squares-four"></i> Dashboard</a>
+                <a href="#" class="menu-item"><i class="ph ph-users"></i> Match</a>
+                <a href="#" class="menu-item"><i class="ph ph-chat-circle"></i> Chat</a>
+                <a href="#" class="menu-item"><i class="ph ph-users-three"></i> Gruppi</a>
+                <a href="#" class="menu-item"><i class="ph ph-user"></i> Profilo</a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="menu-item"><i class="ph ph-gear"></i> Impostazioni</a>
+                <a href="#" class="menu-item logout"><i class="ph ph-sign-out"></i> Logout</a>
+            </div>
+        </aside>
+
+        <!-- MAIN DASHBOARD -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-content">
+                    <div>
+                        <h1>Ciao, Andrea! 👋</h1>
+                        <p>Trova il tuo compagno di studio o lavoro ideale.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-secondary">
+                            <i class="ph ph-bell"></i>
+                            <span class="notification-badge">3</span>
+                        </button>
+                        <button class="btn-primary">
+                            <i class="ph ph-plus"></i> Nuovo Match
+                        </button>
+                    </div>
+                    <button class="btn-toggle-theme">
+                        <i class="ph ph-moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Sezione: Statistiche -->
+            <section class="section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-blue">
+                            <i class="ph ph-users-three"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>24</h3>
+                            <p>Match Totali</p>
+                            <span class="stat-change positive">+12% questa settimana</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-green">
+                            <i class="ph ph-trophy"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>8</h3>
+                            <p>Progetti Completati</p>
+                            <span class="stat-change positive">+2 questo mese</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-orange">
+                            <i class="ph ph-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>156h</h3>
+                            <p>Tempo di Studio</p>
+                            <span class="stat-change positive">+23h questa settimana</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-purple">
+                            <i class="ph ph-star"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>4.8</h3>
+                            <p>Valutazione Media</p>
+                            <span class="stat-change neutral">Nessun cambiamento</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sezione: Attività Recenti e Match -->
+            <div class="dashboard-grid">
+                <section class="section">
+                    <div class="section-header">
+                        <h2>Match Consigliati</h2>
+                        <button class="btn-text">Vedi tutti</button>
+                    </div>
+                    <div class="matches-list">
+                        <div class="match-item">
+                            <div class="match-avatar bg-blue">R</div>
+                            <div class="match-info">
+                                <h4>Robert Chen</h4>
+                                <p class="match-goal">UI/UX Design Expert</p>
+                                <div class="match-tags">
+                                    <span class="tag-small">Figma</span>
+                                    <span class="tag-small">React</span>
+                                    <span class="compatibility-score">95%</span>
+                                </div>
+                            </div>
+                            <button class="btn-primary btn-small">Connetti</button>
+                        </div>
+                        <div class="match-item">
+                            <div class="match-avatar bg-orange">C</div>
+                            <div class="match-info">
+                                <h4>Clarissa Rossi</h4>
+                                <p class="match-goal">Fullstack Developer</p>
+                                <div class="match-tags">
+                                    <span class="tag-small">Node.js</span>
+                                    <span class="tag-small">MongoDB</span>
+                                    <span class="compatibility-score">88%</span>
+                                </div>
+                            </div>
+                            <button class="btn-primary btn-small">Connetti</button>
+                        </div>
+                        <div class="match-item">
+                            <div class="match-avatar bg-green">M</div>
+                            <div class="match-info">
+                                <h4>Matteo Bianchi</h4>
+                                <p class="match-goal">Startup Founder</p>
+                                <div class="match-tags">
+                                    <span class="tag-small">Business</span>
+                                    <span class="tag-small">Marketing</span>
+                                    <span class="compatibility-score">82%</span>
+                                </div>
+                            </div>
+                            <button class="btn-primary btn-small">Connetti</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <h2>Attività Recenti</h2>
+                        <button class="btn-text">Vedi tutte</button>
+                    </div>
+                    <div class="activity-list">
+                        <div class="activity-item">
+                            <div class="activity-icon bg-blue">
+                                <i class="ph ph-user-plus"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p><strong>Nuovo match</strong> con Robert</p>
+                                <span class="activity-time">2 ore fa</span>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon bg-green">
+                                <i class="ph ph-check-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p><strong>Progetto completato:</strong> Landing Page</p>
+                                <span class="activity-time">5 ore fa</span>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon bg-orange">
+                                <i class="ph ph-chat-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p><strong>Nuovo messaggio</strong> nel Gruppo Alpha</p>
+                                <span class="activity-time">1 giorno fa</span>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon bg-purple">
+                                <i class="ph ph-trophy"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p><strong>Obiettivo raggiunto:</strong> 100h di studio</p>
+                                <span class="activity-time">2 giorni fa</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Sezione: Il tuo gruppo e Obiettivi -->
+            <div class="dashboard-grid">
+                <section class="section">
+                    <div class="section-header">
+                        <h2>Il Tuo Gruppo</h2>
+                        <button class="btn-text">Gestisci</button>
+                    </div>
+                    <div class="card group-banner">
+                        <div class="group-info">
+                            <span class="tag">IL TUO GRUPPO</span>
+                            <h2>Gruppo Alpha 🚀</h2>
+                            <p>Obiettivo: Finire il corso di React Advanced</p>
+                            <div class="members-stack">
+                                <div class="m-circle"></div>
+                                <div class="m-circle"></div>
+                                <div class="m-circle"></div>
+                                <div class="m-more">+3</div>
+                            </div>
+                        </div>
+                        <div class="group-stats">
+                            <div class="progress-circle">
+                                <span class="percentage">75%</span>
+                            </div>
+                            <p class="progress-text">6/8 moduli</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <h2>I Tuoi Obiettivi</h2>
+                        <button class="btn-text">Modifica</button>
+                    </div>
+                    <div class="goals-list">
+                        <div class="goal-item">
+                            <div class="goal-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 80%"></div>
+                                </div>
+                                <span class="goal-percentage">80%</span>
+                            </div>
+                            <div class="goal-info">
+                                <h4>Completare corso React</h4>
+                                <p>6/8 moduli completati</p>
+                            </div>
+                        </div>
+                        <div class="goal-item">
+                            <div class="goal-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 60%"></div>
+                                </div>
+                                <span class="goal-percentage">60%</span>
+                            </div>
+                            <div class="goal-info">
+                                <h4>Trovare 5 partner di studio</h4>
+                                <p>3/5 partner trovati</p>
+                            </div>
+                        </div>
+                        <div class="goal-item">
+                            <div class="goal-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 45%"></div>
+                                </div>
+                                <span class="goal-percentage">45%</span>
+                            </div>
+                            <div class="goal-info">
+                                <h4>200 ore di studio totali</h4>
+                                <p>90/200 ore completate</p>
+                    </div>
+                    <div class="filter-group">
+                        <label>Disponibilità</label>
+                        <select class="filter-select">
+                            <option>Qualsiasi</option>
+                            <option>Full-time</option>
+                            <option>Part-time</option>
+                            <option>Weekend</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="matches-grid">
+                    <div class="match-card-detailed">
+                        <div class="match-header">
+                            <div class="match-avatar-large bg-blue">R</div>
+                            <div class="match-info">
+                                <h3>Robert Chen</h3>
+                                <p class="match-title">UI/UX Design Expert</p>
+                                <div class="match-rating">
+                                    <i class="ph ph-star-fill"></i>
+                                    <span>4.9</span>
+                                    <span>(47 match)</span>
+                                </div>
+                            </div>
+                            <div class="match-compatibility">
+                                <div class="compatibility-circle">
+                                    <span>95%</span>
+                                </div>
+                                <p>Compatibilità</p>
+                            </div>
+                        </div>
+                        <div class="match-skills">
+                            <span class="skill-tag">Figma</span>
+                            <span class="skill-tag">React</span>
+                            <span class="skill-tag">UI Design</span>
+                            <span class="skill-tag">Prototyping</span>
+                        </div>
+                        <div class="match-bio">
+                            <p>Appassionato di design con 5+ anni di esperienza. Cerco collaboratori per progetti innovativi.</p>
+                        </div>
+                        <div class="match-actions">
+                            <button class="btn-secondary">
+                                <i class="ph ph-chat-circle"></i> Messaggio
+                            </button>
+                            <button class="btn-primary">
+                                <i class="ph ph-user-plus"></i> Connetti
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="match-card-detailed">
+                        <div class="match-header">
+                            <div class="match-avatar-large bg-orange">C</div>
+                            <div class="match-info">
+                                <h3>Clarissa Rossi</h3>
+                                <p class="match-title">Fullstack Developer</p>
+                                <div class="match-rating">
+                                    <i class="ph ph-star-fill"></i>
+                                    <span>4.8</span>
+                                    <span>(62 match)</span>
+                                </div>
+                            </div>
+                            <div class="match-compatibility">
+                                <div class="compatibility-circle">
+                                    <span>88%</span>
+                                </div>
+                                <p>Compatibilità</p>
+                            </div>
+                        </div>
+                        <div class="match-skills">
+                            <span class="skill-tag">Node.js</span>
+                            <span class="skill-tag">MongoDB</span>
+                            <span class="skill-tag">React</span>
+                            <span class="skill-tag">TypeScript</span>
+                        </div>
+                        <div class="match-bio">
+                            <p>Fullstack developer con esperienza in startup. Amo lavorare su progetti che hanno impatto reale.</p>
+                        </div>
+                        <div class="match-actions">
+                            <button class="btn-secondary">
+                                <i class="ph ph-chat-circle"></i> Messaggio
+                            </button>
+                            <button class="btn-primary">
+                                <i class="ph ph-user-plus"></i> Connetti
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="match-card-detailed">
+                        <div class="match-header">
+                            <div class="match-avatar-large bg-green">M</div>
+                            <div class="match-info">
+                                <h3>Matteo Bianchi</h3>
+                                <p class="match-title">Startup Founder</p>
+                                <div class="match-rating">
+                                    <i class="ph ph-star-fill"></i>
+                                    <span>4.7</span>
+                                    <span>(31 match)</span>
+                                </div>
+                            </div>
+                            <div class="match-compatibility">
+                                <div class="compatibility-circle">
+                                    <span>82%</span>
+                                </div>
+                                <p>Compatibilità</p>
+                            </div>
+                        </div>
+                        <div class="match-skills">
+                            <span class="skill-tag">Business</span>
+                            <span class="skill-tag">Marketing</span>
+                            <span class="skill-tag">Strategy</span>
+                            <span class="skill-tag">Growth</span>
+                        </div>
+                        <div class="match-bio">
+                            <p>Fondatore di 2 startup. Cerco partner tecnici per nuovi progetti innovativi nel settore edtech.</p>
+                        </div>
+                        <div class="match-actions">
+                            <button class="btn-secondary">
+                                <i class="ph ph-chat-circle"></i> Messaggio
+                            </button>
+                            <button class="btn-primary">
+                                <i class="ph ph-user-plus"></i> Connetti
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- CHAT SECTION -->
+        <main class="main-content" id="chatSection" style="display: none;">
+            <header class="main-header">
+                <h1>Chat 💬</h1>
+                <p>Comunica con i tuoi match e gruppi.</p>
+            </header>
+
+            <section class="section">
+                <div class="chat-container">
+                    <div class="chat-sidebar">
+                        <div class="chat-search">
+                            <input type="text" placeholder="Cerca conversazioni..." class="search-input">
+                        </div>
+                        <div class="chat-list">
+                            <div class="chat-item active">
+                                <div class="chat-avatar bg-blue">R</div>
+                                <div class="chat-info">
+                                    <h4>Robert Chen</h4>
+                                    <p>Hey! Ho visto il tuo profilo...</p>
+                                </div>
+                                <div class="chat-meta">
+                                    <span class="chat-time">14:30</span>
+                                    <span class="chat-badge">2</span>
+                                </div>
+                            </div>
+                            <div class="chat-item">
+                                <div class="chat-avatar bg-orange">C</div>
+                                <div class="chat-info">
+                                    <h4>Clarissa Rossi</h4>
+                                    <p>Perfetto! Ci vediamo domani?</p>
+                                </div>
+                                <div class="chat-meta">
+                                    <span class="chat-time">Ieri</span>
+                                </div>
+                            </div>
+                            <div class="chat-item">
+                                <div class="chat-avatar bg-green">G</div>
+                                <div class="chat-info">
+                                    <h4>Gruppo Alpha 🚀</h4>
+                                    <p>Matteo: Qualcuno ha finito il modulo?</p>
+                                </div>
+                                <div class="chat-meta">
+                                    <span class="chat-time">12:45</span>
+                                    <span class="chat-badge">5</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-main">
+                        <div class="chat-header-main">
+                            <div class="chat-header-info">
+                                <div class="chat-avatar bg-blue">R</div>
+                                <div>
+                                    <h3>Robert Chen</h3>
+                                    <span class="online-indicator">Online</span>
+                                </div>
+                            </div>
+                            <div class="chat-actions">
+                                <button class="btn-icon"><i class="ph ph-phone"></i></button>
+                                <button class="btn-icon"><i class="ph ph-video-camera"></i></button>
+                                <button class="btn-icon"><i class="ph ph-info"></i></button>
+                            </div>
+                        </div>
+                        <div class="chat-messages-main" id="chatMessagesMain">
+                            <!-- I messaggi appariranno qui -->
+                        </div>
+                        <div class="chat-input-main">
+                            <button class="btn-icon"><i class="ph ph-paperclip"></i></button>
+                            <input type="text" id="chatInputMain" placeholder="Scrivi un messaggio...">
+                            <button class="btn-icon"><i class="ph ph-smiley"></i></button>
+                            <button class="btn-primary" id="sendBtnMain">
+                                <i class="ph ph-paper-plane-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- GRUPPI SECTION -->
+        <main class="main-content" id="groupsSection" style="display: none;">
+            <header class="main-header">
+                <h1>I Tuoi Gruppi 👥</h1>
+                <p>Collabora e cresci insieme alla community.</p>
+            </header>
+
+            <section class="section">
+                <div class="groups-header">
+                    <button class="btn-primary">
+                        <i class="ph ph-plus"></i> Crea Nuovo Gruppo
+                    </button>
+                </div>
+
+                <div class="groups-grid">
+                    <div class="group-card">
+                        <div class="group-header-card">
+                            <div class="group-icon bg-blue">
+                                <i class="ph ph-code"></i>
+                            </div>
+                            <div class="group-status">
+                                <span class="status-badge active">Attivo</span>
+                                <span class="group-members">6 membri</span>
+                            </div>
+                        </div>
+                        <h3>React Developers</h3>
+                        <p>Gruppo dedicato allo sviluppo con React e best practices.</p>
+                        <div class="group-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 75%"></div>
+                            </div>
+                            <span>75% completato</span>
+                        </div>
+                        <div class="group-members-avatars">
+                            <div class="m-circle"></div>
+                            <div class="m-circle"></div>
+                            <div class="m-circle"></div>
+                            <div class="m-more">+3</div>
+                        </div>
+                        <div class="group-actions">
+                            <button class="btn-secondary">Vedi Dettagli</button>
+                            <button class="btn-primary">Entra in Chat</button>
+                        </div>
+                    </div>
+
+                    <div class="group-card">
+                        <div class="group-header-card">
+                            <div class="group-icon bg-green">
+                                <i class="ph ph-palette"></i>
+                            </div>
+                            <div class="group-status">
+                                <span class="status-badge active">Attivo</span>
+                                <span class="group-members">8 membri</span>
+                            </div>
+                        </div>
+                        <h3>UI/UX Designers</h3>
+                        <p>Community per designer che vogliono migliorare le proprie skills.</p>
+                        <div class="group-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 60%"></div>
+                            </div>
+                            <span>60% completato</span>
+                        </div>
+                        <div class="group-members-avatars">
+                            <div class="m-circle"></div>
+                            <div class="m-circle"></div>
+                            <div class="m-circle"></div>
+                            <div class="m-more">+5</div>
+                        </div>
+                        <div class="group-actions">
+                            <button class="btn-secondary">Vedi Dettagli</button>
+                            <button class="btn-primary">Entra in Chat</button>
+                        </div>
+                    </div>
+
+                    <div class="group-card">
+                        <div class="group-header-card">
+                            <div class="group-icon bg-orange">
+                                <i class="ph ph-rocket"></i>
+                            </div>
+                            <div class="group-status">
+                                <span class="status-badge upcoming">In arrivo</span>
+                                <span class="group-members">0 membri</span>
+                            </div>
+                        </div>
+                        <h3>Startup Founders</h3>
+                        <p>Per chi vuole lanciare la propria startup e ha bisogno di supporto.</p>
+                        <div class="group-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span>In fase di creazione</span>
+                        </div>
+                        <div class="group-members-avatars">
+                            <div class="m-circle empty"></div>
+                            <div class="m-circle empty"></div>
+                            <div class="m-circle empty"></div>
+                            <span class="join-text">Unisciti</span>
+                        </div>
+                        <div class="group-actions">
+                            <button class="btn-primary">Crea Gruppo</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- IMPOSTAZIONI SECTION -->
+        <main class="main-content" id="settingsSection" style="display: none;">
+            <header class="main-header">
+                <h1>Impostazioni ⚙️</h1>
+                <p>Personalizza la tua esperienza e gestisci il tuo account.</p>
+            </header>
+
+            <section class="section">
+                <div class="settings-grid">
+                    <!-- Impostazioni Tema -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div class="settings-icon bg-orange">
+                                <i class="ph ph-palette"></i>
+                            </div>
+                            <h2>Tema</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="theme-options">
+                                <label class="theme-option">
+                                    <input type="radio" name="theme" value="light" checked>
+                                    <span class="theme-preview light-theme">
+                                        <i class="ph ph-sun"></i>
+                                        <span>Chiaro</span>
+                                    </span>
+                                </label>
+                                <label class="theme-option">
+                                    <input type="radio" name="theme" value="dark">
+                                    <span class="theme-preview dark-theme">
+                                        <i class="ph ph-moon"></i>
+                                        <span>Scuro</span>
+                                    </span>
+                                </label>
+                                <label class="theme-option">
+                                    <input type="radio" name="theme" value="auto">
+                                    <span class="theme-preview auto-theme">
+                                        <i class="ph ph-desktop"></i>
+                                        <span>Automatico</span>
+                                    </span>
+                                </label>
+                            </div>
+                            <p class="settings-description">Scegli il tema preferito o imposta automatico in base al sistema.</p>
+                        </div>
+                    </div>
+
+                    <!-- Impostazioni Notifiche -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div class="settings-icon bg-blue">
+                                <i class="ph ph-bell"></i>
+                            </div>
+                            <h2>Notifiche</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="notification-settings">
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" checked>
+                                        <span class="setting-text">Notifiche push</span>
+                                    </label>
+                                    <p>Ricevi notifiche quando ricevi nuovi match o messaggi</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" checked>
+                                        <span class="setting-text">Email di match</span>
+                                    </label>
+                                    <p>Ricevi un'email quando trovi nuovi match compatibili</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox">
+                                        <span class="setting-text">Messaggi di gruppo</span>
+                                    </label>
+                                    <p>Notifiche quando qualcuno scrive nei tuoi gruppi</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" checked>
+                                        <span class="setting-text">Promemoria obiettivi</span>
+                                    </label>
+                                    <p>Ricevi promemoria per i tuoi obiettivi settimanali</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Impostazioni Privacy -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div class="settings-icon bg-green">
+                                <i class="ph ph-lock"></i>
+                            </div>
+                            <h2>Privacy</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="privacy-settings">
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" checked>
+                                        <span class="setting-text">Profilo pubblico</span>
+                                    </label>
+                                    <p>Il tuo profilo sarà visibile a tutti gli utenti</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox" checked>
+                                        <span class="setting-text">Mostra stato online</span>
+                                    </label>
+                                    <p>Altri utenti possono vedere quando sei online</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox">
+                                        <span class="setting-text">Condividi competenze</span>
+                                    </label>
+                                    <p>Mostra le tue competenze nei suggerimenti di match</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">
+                                        <input type="checkbox">
+                                        <span class="setting-text">Nascondi attività</span>
+                                    </label>
+                                    <p>Nascondi le tue attività recenti dal profilo</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Impostazioni Account -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div class="settings-icon bg-purple">
+                                <i class="ph ph-user"></i>
+                            </div>
+                            <h2>Account</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="account-settings">
+                                <div class="setting-item">
+                                    <label class="setting-label">Lingua</label>
+                                    <select class="setting-select">
+                                        <option value="it">Italiano</option>
+                                        <option value="en">English</option>
+                                        <option value="es">Español</option>
+                                        <option value="fr">Français</option>
+                                    </select>
+                                    <p>Scegli la lingua preferita per l'interfaccia</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label">Fuso orario</label>
+                                    <select class="setting-select">
+                                        <option value="Europe/Rome">Europa/Roma (GMT+1)</option>
+                                        <option value="America/New_York">America/New York (GMT-5)</option>
+                                        <option value="Asia/Tokyo">Asia/Tokyo (GMT+9)</option>
+                                    </select>
+                                    <p>Imposta il tuo fuso orario per visualizzare date e ore corrette</p>
+                                </div>
+                                <div class="setting-item">
+                                    <button class="btn-secondary">
+                                        <i class="ph ph-key"></i> Cambia Password
+                                    </button>
+                                    <p>Aggiorna la tua password per maggiore sicurezza</p>
+                                </div>
+                                <div class="setting-item">
+                                    <button class="btn-secondary">
+                                        <i class="ph ph-download-simple"></i> Esporta Dati
+                                    </button>
+                                    <p>Scarica una copia dei tuoi dati personali</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- PROFILO SECTION -->
+        <main class="main-content" id="profileSection" style="display: none;">
+            <header class="main-header">
+                <h1>Il Tuo Profilo 👤</h1>
+                <p>Gestisci le tue informazioni e preferenze.</p>
+            </header>
+
+            <section class="section">
+                <div class="profile-container">
+                    <div class="profile-sidebar">
+                        <div class="profile-avatar-section">
+                            <div class="profile-avatar-large">A</div>
+                            <button class="btn-secondary">
+                                <i class="ph ph-camera"></i> Cambia Foto
+                            </button>
+                        </div>
+                        <div class="profile-stats">
+                            <div class="stat-item">
+                                <h3>24</h3>
+                                <p>Match</p>
+                            </div>
+                            <div class="stat-item">
+                                <h3>8</h3>
+                                <p>Progetti</p>
+                            </div>
+                            <div class="stat-item">
+                                <h3>4.8</h3>
+                                <p>Rating</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-main">
+                        <div class="profile-section">
+                            <h2>Informazioni Personali</h2>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Nome</label>
+                                    <input type="text" value="Andrea" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Cognome</label>
+                                    <input type="text" value="Rossi" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" value="andrea.rossi@email.com" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Telefono</label>
+                                    <input type="tel" value="+39 333 1234567" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-section">
+                            <h2>Competenze</h2>
+                            <div class="skills-container">
+                                <div class="skill-item">
+                                    <span>React</span>
+                                    <button class="skill-remove"><i class="ph ph-x"></i></button>
+                                </div>
+                                <div class="skill-item">
+                                    <span>JavaScript</span>
+                                    <button class="skill-remove"><i class="ph ph-x"></i></button>
+                                </div>
+                                <div class="skill-item">
+                                    <span>UI Design</span>
+                                    <button class="skill-remove"><i class="ph ph-x"></i></button>
+                                </div>
+                                <div class="add-skill">
+                                    <input type="text" placeholder="Aggiungi competenza..." class="skill-input">
+                                    <button class="btn-primary btn-small">Aggiungi</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-section">
+                            <h2>Bio</h2>
+                            <textarea class="form-textarea" rows="4" placeholder="Parla un po' di te...">Sviluppatore full-stack con passione per il design clean e le用户体验. Cerco sempre nuovi progetti sfidanti e collaborazioni interessanti.</textarea>
+                        </div>
+
+                        <div class="profile-section">
+                            <h2>Preferenze</h2>
+                            <div class="preferences-grid">
+                                <div class="preference-item">
+                                    <label class="switch">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span>Notifiche push</span>
+                                </div>
+                                <div class="preference-item">
+                                    <label class="switch">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span>Profilo pubblico</span>
+                                </div>
+                                <div class="preference-item">
+                                    <label class="switch">
+                                        <input type="checkbox">
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span>Mostra stato online</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-actions">
+                            <button class="btn-secondary">Annulla</button>
+                            <button class="btn-primary">Salva Modifiche</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="themeToggle">
+        <i class="ph ph-moon"></i>
+        <span>Tema Scuro</span>
+    </button>
+
+    <script src="script.js"></script>
+</body>
+</html>

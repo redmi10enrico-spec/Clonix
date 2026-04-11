@@ -1,0 +1,124 @@
+/* GROUPS SECTION STYLES */
+.groups-header {
+    margin-bottom: 2rem;
+}
+
+.groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.group-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-soft);
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.group-card:hover {
+    transform: translateY(-5px);
+}
+
+.group-header-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.group-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.3rem;
+}
+
+.group-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+}
+
+.status-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 8px;
+    text-transform: uppercase;
+}
+
+.status-badge.active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-badge.upcoming {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.group-members {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.group-card h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.group-card p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+}
+
+.group-progress {
+    margin-bottom: 1rem;
+}
+
+.group-progress span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    display: block;
+    margin-top: 0.3rem;
+}
+
+.group-members-avatars {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.m-circle.empty {
+    background: #f1f5f9;
+    border: 2px dashed #cbd5e1;
+}
+
+.join-text {
+    font-size: 0.8rem;
+    color: var(--accent-orange);
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+.group-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.group-actions button {
+    flex: 1;
+}
