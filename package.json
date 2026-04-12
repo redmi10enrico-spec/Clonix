@@ -5,8 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start-all": "node start-servers.js",
     "dev": "nodemon server.js",
-    "init-db": "node scripts/init-database.js"
+    "init-db": "node scripts/init-database.js",
+    "frontend": "node static-server.js"
   },
   "dependencies": {
     "axios": "^1.15.0",

@@ -31,12 +31,13 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Database connection
+// Database connection pool for better stability with Aiven MySQL
 let db;
 
 async function initDatabase() {
     try {
-        db = await mysql.createConnection({
+        // Use connection pool for cloud database stability
+        db = await mysql.createPool({
             host: process.env.DB_HOST,
             port: process.env.DB_PORT,
             user: process.env.DB_USER,
@@ -44,13 +45,33 @@ async function initDatabase() {
             database: process.env.DB_NAME,
             ssl: {
                 rejectUnauthorized: false // Allow self-signed certificates for development
-            }
+            },
+            // Pool settings for cloud database stability
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0,
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 10000, // 10 seconds
+            // Reconnect settings
+            maxIdleTime: 300000, // 5 minutes max idle
+            idleTimeout: 60000, // 1 minute idle timeout
+            // Error handling
+            acquireTimeout: 60000, // 1 minute to acquire connection
+            timeout: 60000, // 1 minute query timeout
         });
         
-        console.log('Connected to Aiven MySQL database');
+        console.log('Connected to Aiven MySQL database (Pool mode)');
         
         // Create users table if it doesn't exist
         await createUsersTable();
+        
+        // Setup error handler for pool
+        db.on('error', async (err) => {
+            console.error('Database pool error:', err.message);
+            if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+                console.log('Database connection lost. Pool will reconnect automatically.');
+            }
+        });
         
     } catch (error) {
         console.error('Database connection failed:', error);
