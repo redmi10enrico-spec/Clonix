@@ -22,6 +22,58 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
     <!-- Icone: Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Authentication Check -->
+    <script>
+        // Check if user is authenticated
+        async function checkAuth() {
+            console.log('=== INDEX.HTML AUTH CHECK ===');
+            const token = localStorage.getItem('authToken');
+            const currentUser = sessionStorage.getItem('currentUser');
+            
+            console.log('Token found:', token ? 'YES (length: ' + token.length + ')' : 'NO');
+            console.log('CurrentUser found:', currentUser ? 'YES' : 'NO');
+            
+            if (!token || !currentUser) {
+                console.log('Missing token or user, redirecting to auth.html');
+                window.location.href = 'auth.html';
+                return;
+            }
+            
+            try {
+                console.log('Verifying token with backend...');
+                // Verify token with backend
+                const response = await fetch('http://localhost:3001/api/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Backend response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error('Token invalid - Status: ' + response.status);
+                }
+                
+                const data = await response.json();
+                console.log('Token valid! User:', data.user);
+                
+                // Update current user data
+                sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                console.log('=== AUTH CHECK COMPLETE ===');
+                
+            } catch (error) {
+                console.error('Auth check failed:', error.message);
+                // Clear invalid session
+                localStorage.removeItem('authToken');
+                sessionStorage.removeItem('currentUser');
+                window.location.href = 'auth.html';
+            }
+        }
+        
+        checkAuth();
+    </script>
 </head>
 <body class="dark-theme">
     <!-- Dynamic Background Container -->
@@ -48,7 +100,7 @@
 
             <div class="sidebar-footer">
                 <a href="#" class="menu-item"><i class="ph ph-gear"></i> Impostazioni</a>
-                <a href="#" class="menu-item logout"><i class="ph ph-sign-out"></i> Logout</a>
+                <a href="#" class="menu-item logout" onclick="handleLogout()"><i class="ph ph-sign-out"></i> Logout</a>
             </div>
         </aside>
 
@@ -57,7 +109,7 @@
                 <header class="main-header">
                     <div class="header-content">
                         <div>
-                            <h1>Ciao, Andrea! 👋</h1>
+                            <h1 id="welcomeMessage">Ciao, Andrea! &#128075;</h1>
                             <p>Trova il tuo compagno di studio o lavoro ideale.</p>
                     </div>
                     <div class="header-actions">
@@ -1072,6 +1124,49 @@
 
     </div>
 
-    <script src="script.js"></script>
+    <script>
+    // Authentication functions
+    async function handleLogout() {
+        try {
+            const token = localStorage.getItem('authToken');
+            
+            if (token) {
+                // Call logout API
+                await fetch('http://localhost:3001/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            // Clear all auth data
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('rememberUser');
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'auth.html';
+        }
+    }
+
+    // Update welcome message with user's name
+    function updateWelcomeMessage() {
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        const welcomeElement = document.getElementById('welcomeMessage');
+        
+        if (currentUser && welcomeElement) {
+            const userName = currentUser.name || currentUser.email.split('@')[0] || 'Utente';
+            welcomeElement.textContent = `Ciao, ${userName}! \ud83d\udc4b`;
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateWelcomeMessage();
+    });
+</script>
+<script src="script.js"></script>
 </body>
 </html>

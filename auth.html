@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clonix | Login</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/base.css">
+    <!-- Font: Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icone: Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <!-- Header -->
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <img src="assets/Clonix-No-Background.png" alt="Clonix Logo">
+                    <h1>Clonix</h1>
+                </div>
+                <p class="auth-subtitle">Trova il tuo compagno di studio o lavoro ideale</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+                <button class="auth-tab" onclick="switchTab('register')">Registrati</button>
+            </div>
+
+            <!-- Error/Success Messages -->
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" class="form-input" placeholder="la tua@email.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <div class="password-group">
+                        <input type="password" id="loginPassword" class="form-input" placeholder="Inserisci la password" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="rememberMe" style="width: auto;">
+                        <span style="color: #64748b; font-size: 0.9rem;">Ricordami</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="auth-btn" id="loginBtn">
+                    Accedi
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label class="form-label" for="registerName">Nome Completo</label>
+                    <input type="text" id="registerName" class="form-input" placeholder="Mario Rossi" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" class="form-input" placeholder="la tua@email.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerPassword">Password</label>
+                    <div class="password-group">
+                        <input type="password" id="registerPassword" class="form-input" placeholder="Crea una password" required minlength="8">
+                        <button type="button" class="password-toggle" onclick="togglePassword('registerPassword')">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Conferma Password</label>
+                    <div class="password-group">
+                        <input type="password" id="confirmPassword" class="form-input" placeholder="Conferma la password" required minlength="8">
+                        <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="agreeTerms" required style="width: auto;">
+                        <span style="color: #64748b; font-size: 0.9rem;">Accetto i <a href="#" style="color: #ff9066;">termini di servizio</a> e la <a href="#" style="color: #ff9066;">privacy policy</a></span>
+                    </label>
+                </div>
+
+                <button type="submit" class="auth-btn" id="registerBtn">
+                    Crea Account
+                </button>
+            </form>
+
+            <!-- Social Auth -->
+            <div class="auth-divider">o continua con</div>
+            
+            <div class="social-auth">
+                <button class="social-btn" onclick="handleGoogleLogin()">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Continua con Google
+                </button>
+            </div>
+
+            <!-- Footer -->
+            <div class="auth-footer">
+                <p id="authFooterText">Non hai un account? <a href="#" onclick="switchTab('register')">Registrati</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll('.auth-tab');
+            const forms = document.querySelectorAll('.auth-form');
+            const footerText = document.getElementById('authFooterText');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            forms.forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                tabs[0].classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+                footerText.innerHTML = 'Non hai un account? <a href="#" onclick="switchTab(\'register\')">Registrati</a>';
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+                footerText.innerHTML = 'Hai già un account? <a href="#" onclick="switchTab(\'login\')">Accedi</a>';
+            }
+        }
+
+        // Password toggle
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.nextElementSibling.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'ph ph-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'ph ph-eye';
+            }
+        }
+
+        // Show messages
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+            
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            successDiv.classList.remove('show');
+            
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+            
+            successDiv.textContent = message;
+            successDiv.classList.add('show');
+            errorDiv.classList.remove('show');
+            
+            setTimeout(() => {
+                successDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // Loading state
+        function setLoading(buttonId, loading) {
+            const button = document.getElementById(buttonId);
+            if (loading) {
+                button.classList.add('loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+            }
+        }
+
+        // API Configuration
+        const API_BASE_URL = 'http://localhost:3001/api';
+
+        // Form handlers
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+            
+            setLoading('loginBtn', true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Login failed');
+                }
+                
+                showSuccess('Login successful! Redirecting...');
+                
+                // Store session and token
+                if (rememberMe) {
+                    localStorage.setItem('rememberUser', email);
+                }
+                localStorage.setItem('authToken', data.token);
+                sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoading('loginBtn', false);
+            }
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const agreeTerms = document.getElementById('agreeTerms').checked;
+            
+            // Validation
+            if (password !== confirmPassword) {
+                showError('Le password non coincidono');
+                return;
+            }
+            
+            if (!agreeTerms) {
+                showError('Devi accettare i termini di servizio');
+                return;
+            }
+            
+            setLoading('registerBtn', true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Registration failed');
+                }
+                
+                showSuccess('Account creato con successo! Redirect...');
+                
+                // Store session and token
+                localStorage.setItem('authToken', data.token);
+                sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoading('registerBtn', false);
+            }
+        }
+
+        async function handleGoogleLogin() {
+            try {
+                showSuccess('Connecting to Google...');
+                
+                // Get Google auth URL
+                const response = await fetch(`${API_BASE_URL}/auth/google`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to connect to Google');
+                }
+                
+                if (data.setup) {
+                    // Setup mode - show detailed instructions
+                    showSuccess('Google OAuth setup required. Check console for instructions.');
+                    console.log('=== GOOGLE OAUTH SETUP INSTRUCTIONS ===');
+                    console.log('To enable real Google OAuth with account selection:');
+                    data.instructions.forEach((instruction, index) => {
+                        console.log(`${index + 1}. ${instruction}`);
+                    });
+                    console.log('==========================================');
+                    
+                    // For demo, create a mock Google user
+                    const mockGoogleUser = {
+                        googleId: 'google_demo_' + Date.now(),
+                        email: 'demo@gmail.com',
+                        name: 'Demo Google User',
+                        avatarUrl: 'https://ui-avatars.com/api/?name=Demo+User&background=4285f4&color=fff'
+                    };
+                    
+                    // Use existing google-login endpoint
+                    const loginResponse = await fetch(`${API_BASE_URL}/google-login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(mockGoogleUser)
+                    });
+                    
+                    const loginData = await loginResponse.json();
+                    
+                    if (!loginResponse.ok) {
+                        throw new Error(loginData.error || 'Google login failed');
+                    }
+                    
+                    showSuccess('Demo Google login successful! Redirecting...');
+                    
+                    // Store session and token
+                    localStorage.setItem('authToken', loginData.token);
+                    sessionStorage.setItem('currentUser', JSON.stringify(loginData.user));
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                    
+                } else if (data.authUrl) {
+                    // Real Google OAuth - redirect to Google for account selection
+                    showSuccess('Redirecting to Google for account selection...');
+                    window.location.href = data.authUrl;
+                } else {
+                    throw new Error('No Google auth URL available');
+                }
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Check for remembered user
+        window.addEventListener('DOMContentLoaded', () => {
+            const rememberedUser = localStorage.getItem('rememberUser');
+            if (rememberedUser) {
+                document.getElementById('loginEmail').value = rememberedUser;
+                document.getElementById('rememberMe').checked = true;
+            }
+        });
+    </script>
+</body>
+</html>
