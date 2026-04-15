@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/match.css">
+    <link rel="stylesheet" href="css/match-innovative.css">
     <link rel="stylesheet" href="css/chat.css">
     <link rel="stylesheet" href="css/groups.css">
     <link rel="stylesheet" href="css/profile.css">
@@ -17,6 +18,8 @@
     <link rel="stylesheet" href="css/dark-theme.css">
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/background-effects.css">
+    <link rel="stylesheet" href="css/notifications.css">
+    <link rel="stylesheet" href="css/chat-system.css">
     <link rel="stylesheet" href="css/personalization-safe.css">
     <!-- Font: Plus Jakarta Sans per un look moderno -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -29,7 +32,7 @@
         async function checkAuth() {
             console.log('=== INDEX.HTML AUTH CHECK ===');
             const token = localStorage.getItem('authToken');
-            const currentUser = sessionStorage.getItem('currentUser');
+            const currentUser = localStorage.getItem('currentUser');
             
             console.log('Token found:', token ? 'YES (length: ' + token.length + ')' : 'NO');
             console.log('CurrentUser found:', currentUser ? 'YES' : 'NO');
@@ -59,16 +62,24 @@
                 const data = await response.json();
                 console.log('Token valid! User:', data.user);
                 
-                // Update current user data
-                sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                // Update current user data (persistent in localStorage)
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
                 console.log('=== AUTH CHECK COMPLETE ===');
                 
             } catch (error) {
                 console.error('Auth check failed:', error.message);
-                // Clear invalid session
-                localStorage.removeItem('authToken');
-                sessionStorage.removeItem('currentUser');
-                window.location.href = 'auth.html';
+                
+                // Only clear session for auth errors, not network errors
+                if (error.message.includes('403') || error.message.includes('401') || error.message.includes('invalid')) {
+                    console.log('Token invalid, clearing session...');
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('currentUser');
+                    window.location.href = 'auth.html';
+                } else {
+                    console.log('Network or server error - keeping existing session');
+                    // Don't redirect, just log the error - user stays logged in
+                    // The session will be re-verified on next page load
+                }
             }
         }
         
@@ -91,15 +102,22 @@
             </div>
 
             <nav class="menu">
-                <a href="#" class="menu-item active"><i class="ph ph-squares-four"></i> Dashboard</a>
-                <a href="#" class="menu-item"><i class="ph ph-users"></i> Match</a>
-                <a href="#" class="menu-item"><i class="ph ph-chat-circle"></i> Chat</a>
-                <a href="#" class="menu-item"><i class="ph ph-users-three"></i> Gruppi</a>
-                <a href="#" class="menu-item"><i class="ph ph-user"></i> Profilo</a>
+                <a href="#" class="menu-item active" onclick="showSection('dashboardSection'); return false;"><i class="ph ph-squares-four"></i> Dashboard</a>
+                <a href="#" class="menu-item" id="matchMenuItem" onclick="showSection('matchSection'); loadMatchSection(); clearMatchBadge(); return false;">
+                    <i class="ph ph-users"></i> Match
+                    <span class="menu-badge" id="matchMenuBadge" style="display: none;">!</span>
+                </a>
+                <a href="#" class="menu-item" id="requestsMenuItem" onclick="showSection('requestsSection'); loadAllNotifications(); return false;">
+                    <i class="ph ph-bell"></i> Richieste
+                    <span class="menu-badge" id="requestsMenuBadge" style="display: none;">0</span>
+                </a>
+                <a href="#" class="menu-item" onclick="showSection('chatSection'); return false;"><i class="ph ph-chat-circle"></i> Chat</a>
+                <a href="#" class="menu-item" onclick="showSection('groupsSection'); return false;"><i class="ph ph-users-three"></i> Gruppi</a>
+                <a href="#" class="menu-item" onclick="showSection('profileSection'); return false;"><i class="ph ph-user"></i> Profilo</a>
             </nav>
 
             <div class="sidebar-footer">
-                <a href="#" class="menu-item"><i class="ph ph-gear"></i> Impostazioni</a>
+                <a href="#" class="menu-item" onclick="showSection('settingsSection'); return false;"><i class="ph ph-gear"></i> Impostazioni</a>
                 <a href="#" class="menu-item logout" onclick="handleLogout()"><i class="ph ph-sign-out"></i> Logout</a>
             </div>
         </aside>
@@ -113,11 +131,28 @@
                             <p>Trova il tuo compagno di studio o lavoro ideale.</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn-secondary">
-                            <i class="ph ph-bell"></i>
-                            <span class="notification-badge">3</span>
-                        </button>
-                        <button class="btn-primary advanced morph-button">
+                        <!-- NOTIFICATION SYSTEM -->
+                        <div class="notification-container" id="notificationContainer">
+                            <button class="btn-secondary notification-btn" id="notificationBtn" onclick="toggleNotifications()">
+                                <i class="ph ph-bell"></i>
+                                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                            </button>
+                            <div class="notification-dropdown" id="notificationDropdown" style="display: none;">
+                                <div class="notification-header">
+                                    <h3>Notifiche</h3>
+                                    <span id="notificationCount">0 nuove</span>
+                                </div>
+                                <div class="notification-list" id="notificationList">
+                                    <p class="notification-empty">Nessuna notifica</p>
+                                </div>
+                                <div class="notification-footer">
+                                    <button onclick="loadNotifications()" class="btn-link">Aggiorna</button>
+                                    <button onclick="markAllRead()" class="btn-link">Segna tutte come lette</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- END NOTIFICATION SYSTEM -->
+                        <button class="btn-primary advanced morph-button" onclick="openMatchRequestModal()">
                             <i class="ph ph-plus"></i> Nuovo Match
                         </button>
                     </div>
@@ -175,48 +210,22 @@
                 <section class="section">
                     <div class="section-header">
                         <h2>Match Consigliati</h2>
-                        <button class="btn-text">Vedi tutti</button>
+                        <button class="btn-text" onclick="loadMatches()">🔄 Aggiorna</button>
                     </div>
-                    <div class="matches-list">
-                        <div class="match-item">
-                            <div class="match-avatar bg-blue">R</div>
+                    <div class="matches-list" id="recommendedMatches">
+                        <!-- Loading state -->
+                        <div class="match-item loading" id="matchesLoading">
                             <div class="match-info">
-                                <h4>Robert Chen</h4>
-                                <p class="match-goal">UI/UX Design Expert</p>
-                                <div class="match-tags">
-                                    <span class="tag-small">Figma</span>
-                                    <span class="tag-small">React</span>
-                                    <span class="compatibility-score">95%</span>
-                                </div>
+                                <p style="color: var(--text-secondary);">🔍 Ricerca match in corso...</p>
                             </div>
-                            <button class="btn-primary btn-small">Connetti</button>
                         </div>
-                        <div class="match-item">
-                            <div class="match-avatar bg-orange">C</div>
-                            <div class="match-info">
-                                <h4>Clarissa Rossi</h4>
-                                <p class="match-goal">Fullstack Developer</p>
-                                <div class="match-tags">
-                                    <span class="tag-small">Node.js</span>
-                                    <span class="tag-small">MongoDB</span>
-                                    <span class="compatibility-score">88%</span>
-                                </div>
-                            </div>
-                            <button class="btn-primary btn-small">Connetti</button>
-                        </div>
-                        <div class="match-item">
-                            <div class="match-avatar bg-green">M</div>
-                            <div class="match-info">
-                                <h4>Matteo Bianchi</h4>
-                                <p class="match-goal">Startup Founder</p>
-                                <div class="match-tags">
-                                    <span class="tag-small">Business</span>
-                                    <span class="tag-small">Marketing</span>
-                                    <span class="compatibility-score">82%</span>
-                                </div>
-                            </div>
-                            <button class="btn-primary btn-small">Connetti</button>
-                        </div>
+                    </div>
+                    <div id="matchesEmpty" style="display: none; padding: 20px; text-align: center;">
+                        <p style="color: var(--text-secondary);">😕 Nessun match trovato</p>
+                        <p style="font-size: 0.9rem; margin-top: 10px;">Aggiungi più competenze al tuo profilo per trovare match compatibili!</p>
+                        <button class="btn-primary btn-small" onclick="window.location.href='#profileSection'" style="margin-top: 15px;">
+                            👤 Vai al Profilo
+                        </button>
                     </div>
                 </section>
 
@@ -464,83 +473,247 @@
             </section>
         </main>
 
-        <!-- CHAT SECTION -->
-        <main class="main-content" id="chatSection" style="display: none;">
+        <!-- MATCH SECTION - Nuova sezione dedicata ai match -->
+        <main class="main-content" id="matchSection" style="display: none;">
             <header class="main-header">
-                <h1>Chat 💬</h1>
-                <p>Comunica con i tuoi match e gruppi.</p>
+                <div class="header-content">
+                    <div>
+                        <h1>I Tuoi Match 🎯</h1>
+                        <p>Scopri persone compatibili con i tuoi interessi e competenze.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-icon" onclick="refreshMatchSection()" title="Aggiorna Match">
+                            <i class="ph ph-arrows-clockwise"></i>
+                        </button>
+                        <button class="btn-primary" onclick="openMatchSearch()">
+                            <i class="ph ph-magnifying-glass"></i> Cerca Match
+                        </button>
+                    </div>
+                </div>
             </header>
 
-            <section class="section">
-                <div class="chat-container">
-                    <div class="chat-sidebar">
-                        <div class="chat-search">
-                            <input type="text" placeholder="Cerca conversazioni..." class="search-input">
-                        </div>
-                        <div class="chat-list">
-                            <div class="chat-item active">
-                                <div class="chat-avatar bg-blue">R</div>
-                                <div class="chat-info">
-                                    <h4>Robert Chen</h4>
-                                    <p>Hey! Ho visto il tuo profilo...</p>
-                                </div>
-                                <div class="chat-meta">
-                                    <span class="chat-time">14:30</span>
-                                    <span class="chat-badge">2</span>
-                                </div>
-                            </div>
-                            <div class="chat-item">
-                                <div class="chat-avatar bg-orange">C</div>
-                                <div class="chat-info">
-                                    <h4>Clarissa Rossi</h4>
-                                    <p>Perfetto! Ci vediamo domani?</p>
-                                </div>
-                                <div class="chat-meta">
-                                    <span class="chat-time">Ieri</span>
-                                </div>
-                            </div>
-                            <div class="chat-item">
-                                <div class="chat-avatar bg-green">G</div>
-                                <div class="chat-info">
-                                    <h4>Gruppo Alpha 🚀</h4>
-                                    <p>Matteo: Qualcuno ha finito il modulo?</p>
-                                </div>
-                                <div class="chat-meta">
-                                    <span class="chat-time">12:45</span>
-                                    <span class="chat-badge">5</span>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Search Panel -->
+            <section class="section search-panel" id="matchSearchPanel" style="display: none;">
+                <div class="search-container">
+                    <div class="search-header">
+                        <h3>🔍 Ricerca Avanzata</h3>
+                        <button class="btn-icon" onclick="closeMatchSearch()">
+                            <i class="ph ph-x"></i>
+                        </button>
                     </div>
-                    <div class="chat-main">
-                        <div class="chat-header-main">
-                            <div class="chat-header-info">
-                                <div class="chat-avatar bg-blue">R</div>
-                                <div>
-                                    <h3>Robert Chen</h3>
-                                    <span class="online-indicator">Online</span>
-                                </div>
+                    <div class="search-filters">
+                        <div class="filter-row">
+                            <div class="filter-item">
+                                <label>Competenza</label>
+                                <input type="text" id="searchSkill" placeholder="Es: coding, design..." class="search-input">
                             </div>
-                            <div class="chat-actions">
-                                <button class="btn-icon"><i class="ph ph-phone"></i></button>
-                                <button class="btn-icon"><i class="ph ph-video-camera"></i></button>
-                                <button class="btn-icon"><i class="ph ph-info"></i></button>
+                            <div class="filter-item">
+                                <label>Compatibilità minima</label>
+                                <select id="minCompatibility" class="filter-select">
+                                    <option value="0">Qualsiasi</option>
+                                    <option value="30">30%</option>
+                                    <option value="50">50%</option>
+                                    <option value="70">70%</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Ordina per</label>
+                                <select id="sortBy" class="filter-select">
+                                    <option value="compatibility">Compatibilità</option>
+                                    <option value="recent">Più recenti</option>
+                                    <option value="name">Nome</option>
+                                </select>
                             </div>
                         </div>
-                        <div class="chat-messages-main" id="chatMessagesMain">
-                            <!-- I messaggi appariranno qui -->
-                        </div>
-                        <div class="chat-input-main">
-                            <button class="btn-icon"><i class="ph ph-paperclip"></i></button>
-                            <input type="text" id="chatInputMain" placeholder="Scrivi un messaggio...">
-                            <button class="btn-icon"><i class="ph ph-smiley"></i></button>
-                            <button class="btn-primary" id="sendBtnMain">
-                                <i class="ph ph-paper-plane-right"></i>
+                        <div class="search-actions">
+                            <button class="btn-secondary" onclick="resetMatchSearch()">Reset</button>
+                            <button class="btn-primary" onclick="searchMatches()">
+                                <i class="ph ph-magnifying-glass"></i> Cerca
                             </button>
                         </div>
                     </div>
                 </div>
             </section>
+
+            <!-- Stats Overview -->
+            <section class="section stats-row">
+                <div class="stat-cards">
+                    <div class="stat-card-mini">
+                        <div class="stat-icon bg-blue">
+                            <i class="ph ph-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4 id="totalMatchesCount">0</h4>
+                            <p>Match Totali</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-mini">
+                        <div class="stat-icon bg-green">
+                            <i class="ph ph-star"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4 id="highCompatibilityCount">0</h4>
+                            <p>Alta Compatibilità (>70%)</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-mini">
+                        <div class="stat-icon bg-orange">
+                            <i class="ph ph-handshake"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4 id="commonTagsCount">0</h4>
+                            <p>Tag in Comune</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Match Grid - Layout innovativo -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Match Consigliati</h2>
+                    <div class="view-toggle">
+                        <button class="btn-icon active" onclick="setViewMode('grid')" title="Vista Griglia">
+                            <i class="ph ph-squares-four"></i>
+                        </button>
+                        <button class="btn-icon" onclick="setViewMode('list')" title="Vista Lista">
+                            <i class="ph ph-list"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="matchSectionLoading" class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p>🔍 Ricerca match perfetti per te...</p>
+                </div>
+                
+                <!-- Empty State -->
+                <div id="matchSectionEmpty" class="empty-state" style="display: none;">
+                    <div class="empty-icon">🤔</div>
+                    <h3>Nessun match trovato</h3>
+                    <p>Aggiungi più competenze al tuo profilo per trovare persone compatibili.</p>
+                    <button class="btn-primary" onclick="window.location.href='#profileSection'">
+                        👤 Completa il Profilo
+                    </button>
+                </div>
+                
+                <!-- Match Grid Container -->
+                <div class="matches-grid-innovative" id="matchSectionGrid">
+                    <!-- I match verranno caricati dinamicamente qui -->
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="section quick-actions">
+                <h3>Azioni Rapide</h3>
+                <div class="action-cards">
+                    <div class="action-card" onclick="loadMatchesByTag('coding')">
+                        <i class="ph ph-code"></i>
+                        <span>Sviluppatori</span>
+                    </div>
+                    <div class="action-card" onclick="loadMatchesByTag('design')">
+                        <i class="ph ph-paint-brush"></i>
+                        <span>Designer</span>
+                    </div>
+                    <div class="action-card" onclick="loadMatchesByTag('startup')">
+                        <i class="ph ph-rocket"></i>
+                        <span>Founder</span>
+                    </div>
+                    <div class="action-card" onclick="loadMatchesByTag('marketing')">
+                        <i class="ph ph-megaphone"></i>
+                        <span>Marketing</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- REQUESTS SECTION - Richieste di match -->
+        <main class="main-content" id="requestsSection" style="display: none;">
+            <header class="main-header">
+                <div class="header-content">
+                    <div>
+                        <h1><i class="ph ph-bell"></i> Richieste di Match</h1>
+                        <p>Gestisci le richieste ricevute e inviate.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-icon" onclick="refreshRequests()" title="Aggiorna Richieste">
+                            <i class="ph ph-arrows-clockwise"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="requests-container">
+                <!-- Richieste Ricevute -->
+                <section class="section">
+                    <h3><i class="ph ph-download-simple"></i> Richieste Ricevute</h3>
+                    <div id="receivedRequestsList" class="requests-list">
+                        <p class="empty-requests">Nessuna richiesta ricevuta</p>
+                    </div>
+                </section>
+
+                <!-- Richieste Inviate -->
+                <section class="section">
+                    <h3><i class="ph ph-upload-simple"></i> Richieste Inviate</h3>
+                    <div id="sentRequestsList" class="requests-list">
+                        <p class="empty-requests">Nessuna richiesta inviata</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- CHAT SECTION -->
+        <main class="main-content" id="chatSection" style="display: none;">
+            <header class="main-header">
+                <div class="header-content">
+                    <div>
+                        <h1>Chat 💬</h1>
+                        <p>Comunica con i tuoi match in tempo reale.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-secondary" onclick="loadConnections()">
+                            <i class="ph ph-arrows-clockwise"></i> Aggiorna
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="chat-layout">
+                <!-- SIDEBAR CONNESSIONI -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <h2>I tuoi Match</h2>
+                        <p id="connectionsCount">0 connessioni attive</p>
+                    </div>
+                    <div class="connections-list" id="connectionsList">
+                        <p class="empty-state">Nessun match ancora. Vai nella sezione Match per trovare persone!</p>
+                    </div>
+                </div>
+
+                <!-- CHAT AREA -->
+                <div class="chat-area" id="chatArea">
+                    <div class="chat-header" id="chatHeader" style="display: none;">
+                        <div class="chat-header-avatar" id="chatHeaderAvatar">?</div>
+                        <div class="chat-header-info">
+                            <h3 id="chatHeaderName">Seleziona un match</h3>
+                            <span id="chatHeaderStatus">Scegli qualcuno dalla lista</span>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="empty-state">
+                            <i class="ph ph-chat-circle" style="font-size: 3rem; color: rgba(160, 209, 255, 0.3);"></i>
+                            <p>Seleziona un match per iniziare a chattare</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-area" id="chatInputArea" style="display: none;">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="Scrivi un messaggio...">
+                        <button class="btn-send" id="sendMessageBtn">
+                            <i class="ph ph-paper-plane-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <!-- GRUPPI SECTION -->
@@ -1042,15 +1215,15 @@
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>Nome</label>
-                                    <input type="text" value="Andrea" class="form-input">
+                                    <input type="text" id="profileName" class="form-input">
                                 </div>
                                 <div class="form-group">
                                     <label>Cognome</label>
-                                    <input type="text" value="Rossi" class="form-input">
+                                    <input type="text" id="profileSurname" class="form-input">
                                 </div>
                                 <div class="form-group">
                                     <label>Email</label>
-                                    <input type="email" value="andrea.rossi@email.com" class="form-input">
+                                    <input type="email" id="profileEmail" class="form-input" readonly>
                                 </div>
                                 <div class="form-group">
                                     <label>Telefono</label>
@@ -1061,24 +1234,14 @@
 
                         <div class="profile-section">
                             <h2>Competenze</h2>
-                            <div class="skills-container">
-                                <div class="skill-item">
-                                    <span>React</span>
-                                    <button class="skill-remove"><i class="ph ph-x"></i></button>
-                                </div>
-                                <div class="skill-item">
-                                    <span>JavaScript</span>
-                                    <button class="skill-remove"><i class="ph ph-x"></i></button>
-                                </div>
-                                <div class="skill-item">
-                                    <span>UI Design</span>
-                                    <button class="skill-remove"><i class="ph ph-x"></i></button>
-                                </div>
-                                <div class="add-skill">
-                                    <input type="text" placeholder="Aggiungi competenza..." class="skill-input">
-                                    <button class="btn-primary btn-small">Aggiungi</button>
-                                </div>
+                            <div class="skills-container" id="skillsContainer">
+                                <!-- Skills will be loaded dynamically -->
                             </div>
+                            <div class="add-skill" style="margin-top: 15px;">
+                                <input type="text" id="skillInput" placeholder="Aggiungi competenza..." class="skill-input" onkeypress="if(event.key==='Enter')addSkill()">
+                                <button class="btn-primary btn-small" onclick="addSkill()">Aggiungi</button>
+                            </div>
+                            <p style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">Premi Invio o clicca Aggiungi. Queste competenze saranno usate per il sistema di match.</p>
                         </div>
 
                         <div class="profile-section">
@@ -1114,8 +1277,8 @@
                         </div>
 
                         <div class="profile-actions">
-                            <button class="btn-secondary">Annulla</button>
-                            <button class="btn-primary">Salva Modifiche</button>
+                            <button class="btn-secondary" onclick="resetProfileChanges()">Annulla</button>
+                            <button class="btn-primary" onclick="saveProfileData()">Salva Modifiche</button>
                         </div>
                     </div>
                 </div>
@@ -1145,28 +1308,1337 @@
         } finally {
             // Clear all auth data
             localStorage.removeItem('authToken');
-            localStorage.removeItem('rememberUser');
-            sessionStorage.removeItem('currentUser');
+            localStorage.removeItem('currentUser');
             window.location.href = 'auth.html';
         }
     }
 
     // Update welcome message with user's name
     function updateWelcomeMessage() {
-        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
         const welcomeElement = document.getElementById('welcomeMessage');
         
         if (currentUser && welcomeElement) {
             const userName = currentUser.name || currentUser.email.split('@')[0] || 'Utente';
-            welcomeElement.textContent = `Ciao, ${userName}! \ud83d\udc4b`;
+            welcomeElement.textContent = `Ciao, ${userName}! 👋`;
         }
+    }
+
+    // Skills management
+    let userSkills = [];
+
+    function loadSkills() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (currentUser && currentUser.skills) {
+            userSkills = currentUser.skills;
+        } else {
+            userSkills = [];
+        }
+        renderSkills();
+    }
+
+    function renderSkills() {
+        const container = document.getElementById('skillsContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        userSkills.forEach((skill, index) => {
+            const skillTag = document.createElement('div');
+            skillTag.className = 'skill-item';
+            skillTag.innerHTML = `
+                <span>${skill}</span>
+                <button class="skill-remove" onclick="removeSkill(${index})" title="Rimuovi competenza">
+                    <i class="ph ph-x"></i>
+                </button>
+            `;
+            container.appendChild(skillTag);
+        });
+    }
+
+    function addSkill() {
+        const input = document.getElementById('skillInput');
+        if (!input) return;
+        
+        const skill = input.value.trim();
+        
+        if (!skill) {
+            alert('Inserisci una competenza');
+            return;
+        }
+        
+        if (userSkills.includes(skill)) {
+            alert('Questa competenza è già presente');
+            return;
+        }
+        
+        userSkills.push(skill);
+        input.value = '';
+        renderSkills();
+        
+        // Auto-save to localStorage
+        saveSkillsToStorage();
+        
+        console.log('Skill added:', skill);
+    }
+
+    function removeSkill(index) {
+        const removed = userSkills.splice(index, 1);
+        renderSkills();
+        saveSkillsToStorage();
+        console.log('Skill removed:', removed);
+    }
+
+    function saveSkillsToStorage() {
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (currentUser) {
+            currentUser.skills = userSkills;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        }
+    }
+
+    // Load real user data into profile section
+    function loadProfileData() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        
+        if (!currentUser) {
+            console.log('No user data found in localStorage');
+            return;
+        }
+        
+        console.log('Loading profile data for user:', currentUser);
+        
+        // Split name into first and last name
+        const fullName = currentUser.name || '';
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        // Populate profile fields
+        const nameInput = document.getElementById('profileName');
+        const surnameInput = document.getElementById('profileSurname');
+        const emailInput = document.getElementById('profileEmail');
+        
+        if (nameInput) nameInput.value = firstName;
+        if (surnameInput) surnameInput.value = lastName;
+        if (emailInput) emailInput.value = currentUser.email || '';
+        
+        // Update avatar initial
+        const avatarElement = document.querySelector('.profile-avatar-large');
+        if (avatarElement && firstName) {
+            avatarElement.textContent = firstName.charAt(0).toUpperCase();
+        }
+        
+        // Load skills
+        loadSkills();
+        
+        console.log('Profile data loaded successfully');
+    }
+
+    // Reset profile changes (reload from localStorage)
+    function resetProfileChanges() {
+        loadProfileData();
+        console.log('Profile changes reset');
+    }
+
+    // Save profile changes to localStorage
+    async function saveProfileData() {
+        const nameInput = document.getElementById('profileName');
+        const surnameInput = document.getElementById('profileSurname');
+        
+        if (!nameInput || !surnameInput) {
+            console.error('Profile inputs not found');
+            return;
+        }
+        
+        const firstName = nameInput.value.trim();
+        const lastName = surnameInput.value.trim();
+        const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+        
+        // Get current user data
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            alert('Errore: utente non trovato');
+            return;
+        }
+        
+        // Update name
+        currentUser.name = fullName;
+        
+        // Save skills
+        currentUser.skills = userSkills;
+        
+        // Save back to localStorage
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        
+        // 💾 Sincronizza skill nel database per il matching
+        await syncSkillsToDatabase();
+        
+        console.log('Profile saved:', currentUser);
+        console.log('Skills saved:', userSkills);
+        alert('Modifiche salvate con successo!');
+    }
+
+    // 🎯 SISTEMA DI MATCHING - Carica match reali dal backend
+    async function loadMatches() {
+        const token = localStorage.getItem('authToken');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        
+        if (!token || !currentUser) {
+            console.log('Utente non autenticato, skip caricamento match');
+            return;
+        }
+        
+        const container = document.getElementById('recommendedMatches');
+        const emptyState = document.getElementById('matchesEmpty');
+        
+        // Mostra loading
+        container.innerHTML = `
+            <div class="match-item loading">
+                <div class="match-info">
+                    <p style="color: var(--text-secondary);">🔍 Ricerca match in corso...</p>
+                </div>
+            </div>
+        `;
+        emptyState.style.display = 'none';
+        
+        try {
+            const API_BASE_URL = 'http://localhost:3001/api';
+            const response = await fetch(`${API_BASE_URL}/matches/${currentUser.id}?limit=10`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            // Verifica che la risposta sia JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Server returned non-JSON response:', text.substring(0, 200));
+                throw new Error(`Server error: ${response.status} - Endpoint non trovato o server non pronto`);
+            }
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Errore HTTP ${response.status}`);
+            }
+            
+            const matches = data.data.matches || [];
+            
+            // Debug: mostra tutti i match ricevuti
+            console.log('📊 Tutti i match ricevuti:', matches.map(m => ({
+                name: m.user.name,
+                percentage: m.compatibility.percentage,
+                commonTags: m.compatibility.commonTags
+            })));
+            
+            // Mostra TUTTI i match con almeno 1 tag in comune (anche bassa %)
+            const relevantMatches = matches.filter(m => m.compatibility.commonTagsCount >= 1);
+            
+            if (relevantMatches.length === 0) {
+                container.innerHTML = '';
+                emptyState.style.display = 'block';
+                console.log('⚠️ Nessun match con tag in comune trovato');
+                return;
+            }
+            
+            // Renderizza i match
+            renderMatches(relevantMatches);
+            console.log(`✅ Caricati ${relevantMatches.length} match`);
+            
+        } catch (error) {
+            console.error('❌ Errore caricamento match:', error);
+            container.innerHTML = `
+                <div class="match-item">
+                    <div class="match-info">
+                        <p style="color: #ff6b6b;">⚠️ Errore nel caricamento dei match</p>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary);">${error.message}</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    // 🎨 Renderizza lista match nel DOM
+    function renderMatches(matches) {
+        const container = document.getElementById('recommendedMatches');
+        
+        const colors = ['bg-blue', 'bg-orange', 'bg-green', 'bg-purple', 'bg-pink'];
+        
+        container.innerHTML = matches.map((match, index) => {
+            const colorClass = colors[index % colors.length];
+            const initial = match.user.name.charAt(0).toUpperCase();
+            const percentage = match.compatibility.percentage;
+            const commonTags = match.compatibility.commonTags || [];
+            
+            // Determina colore percentuale
+            let percentageColor = '#ff6b6b'; // rosso < 50%
+            if (percentage >= 80) percentageColor = '#51cf66'; // verde
+            else if (percentage >= 50) percentageColor = '#ffd43b'; // giallo
+            
+            return `
+                <div class="match-item" data-match-id="${match.user.id}">
+                    <div class="match-avatar ${colorClass}">${initial}</div>
+                    <div class="match-info">
+                        <h4>${match.user.name}</h4>
+                        <p class="match-goal">${match.user.totalSkills || 0} competenze</p>
+                        <div class="match-tags">
+                            ${commonTags.slice(0, 3).map(tag => 
+                                `<span class="tag-small tag-match">${tag}</span>`
+                            ).join('')}
+                            ${commonTags.length > 3 ? `<span class="tag-small">+${commonTags.length - 3}</span>` : ''}
+                        </div>
+                        <div class="compatibility-bar" style="margin-top: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; height: 6px; background: var(--bg-tertiary); border-radius: 3px; overflow: hidden;">
+                                    <div style="width: ${percentage}%; height: 100%; background: ${percentageColor}; border-radius: 3px; transition: width 0.3s;"></div>
+                                </div>
+                                <span class="compatibility-score" style="color: ${percentageColor}; font-weight: 600;">${percentage}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-primary btn-small" onclick="connectWithUser(${match.user.id}, '${match.user.name}')">
+                        Connetti
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 💾 Salva le skill anche nel database quando si salvano le modifiche profilo
+    async function syncSkillsToDatabase() {
+        const token = localStorage.getItem('authToken');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        
+        if (!token || !currentUser || !currentUser.skills || currentUser.skills.length === 0) {
+            return;
+        }
+        
+        try {
+            const API_BASE_URL = 'http://localhost:3001/api';
+            const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}/skills`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ skills: currentUser.skills })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('✅ Skills sincronizzate nel database');
+            } else {
+                console.warn('⚠️ Errore sincronizzazione skills:', data.error);
+            }
+        } catch (error) {
+            console.error('❌ Errore sync skills:', error);
+        }
+    }
+
+    // 🔀 NAVIGAZIONE TRA SEZIONI (FUNZIONE BASE)
+    function showSection(sectionId) {
+        // Nascondi tutte le sezioni
+        const sections = document.querySelectorAll('.main-content');
+        sections.forEach(section => {
+            section.style.display = 'none';
+        });
+        
+        // Mostra la sezione richiesta
+        const targetSection = document.getElementById(sectionId);
+        if (targetSection) {
+            targetSection.style.display = 'block';
+        }
+        
+        // Aggiorna menu attivo
+        const menuItems = document.querySelectorAll('.menu-item');
+        menuItems.forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(sectionId)) {
+                item.classList.add('active');
+            }
+        });
+        
+        // Scroll to top
+        window.scrollTo(0, 0);
+    }
+
+    // 🎯 FUNZIONI PER LA SEZIONE MATCH INNOVATIVA
+    let currentViewMode = 'grid';
+    let allMatchesData = [];
+
+    // Carica i match nella sezione dedicata
+    async function loadMatchSection() {
+        const token = localStorage.getItem('authToken');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        
+        if (!token || !currentUser) {
+            console.log('Utente non autenticato');
+            return;
+        }
+        
+        // Mostra loading
+        document.getElementById('matchSectionLoading').style.display = 'flex';
+        document.getElementById('matchSectionEmpty').style.display = 'none';
+        document.getElementById('matchSectionGrid').innerHTML = '';
+        
+        try {
+            const API_BASE_URL = 'http://localhost:3001/api';
+            const response = await fetch(`${API_BASE_URL}/matches/${currentUser.id}?limit=50`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Risposta non valida dal server');
+            }
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Errore nel recupero dei match');
+            }
+            
+            allMatchesData = data.data.matches || [];
+            
+            // Aggiorna statistiche
+            updateMatchStats(allMatchesData);
+            
+            // Renderizza match
+            renderMatchSection(allMatchesData);
+            
+            console.log(`✅ Caricati ${allMatchesData.length} match nella sezione`);
+            
+        } catch (error) {
+            console.error('❌ Errore:', error);
+            document.getElementById('matchSectionLoading').style.display = 'none';
+            document.getElementById('matchSectionEmpty').style.display = 'block';
+        }
+    }
+
+    // Aggiorna statistiche
+    function updateMatchStats(matches) {
+        document.getElementById('totalMatchesCount').textContent = matches.length;
+        document.getElementById('highCompatibilityCount').textContent = 
+            matches.filter(m => m.compatibility.percentage >= 70).length;
+        
+        const totalCommonTags = matches.reduce((sum, m) => sum + m.compatibility.commonTagsCount, 0);
+        document.getElementById('commonTagsCount').textContent = totalCommonTags;
+    }
+
+    // Renderizza match nella sezione
+    function renderMatchSection(matches) {
+        const container = document.getElementById('matchSectionGrid');
+        const loading = document.getElementById('matchSectionLoading');
+        const empty = document.getElementById('matchSectionEmpty');
+        
+        loading.style.display = 'none';
+        
+        if (matches.length === 0) {
+            empty.style.display = 'block';
+            container.innerHTML = '';
+            return;
+        }
+        
+        empty.style.display = 'none';
+        
+        const colors = ['bg-blue', 'bg-orange', 'bg-green', 'bg-purple', 'bg-pink', 'bg-red'];
+        
+        container.innerHTML = matches.map((match, index) => {
+            const colorClass = colors[index % colors.length];
+            const initial = match.user.name.charAt(0).toUpperCase();
+            const percentage = match.compatibility.percentage;
+            const commonTags = match.compatibility.commonTags || [];
+            
+            // Colore percentuale
+            let percentColor = '#ff6b6b';
+            let percentClass = 'low';
+            if (percentage >= 80) {
+                percentColor = '#51cf66';
+                percentClass = 'high';
+            } else if (percentage >= 50) {
+                percentColor = '#ffd43b';
+                percentClass = 'medium';
+            }
+            
+            return `
+                <div class="match-card-innovative ${currentViewMode}" data-match-id="${match.user.id}">
+                    <div class="match-card-header">
+                        <div class="match-avatar-large ${colorClass}">${initial}</div>
+                        <div class="match-compatibility-badge ${percentClass}">
+                            <span class="percent-value">${percentage}%</span>
+                            <span class="percent-label">compatibilità</span>
+                        </div>
+                    </div>
+                    
+                    <div class="match-card-body">
+                        <h3 class="match-name">${match.user.name}</h3>
+                        <p class="match-meta">${match.user.totalSkills || 0} competenze • ${match.user.email}</p>
+                        
+                        <div class="common-tags-section">
+                            <p class="tags-label">🎯 Tag in comune:</p>
+                            <div class="tags-container">
+                                ${commonTags.slice(0, 5).map(tag => 
+                                    `<span class="tag-match">${tag}</span>`
+                                ).join('')}
+                                ${commonTags.length > 5 ? `<span class="tag-more">+${commonTags.length - 5}</span>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="compatibility-bar-large">
+                            <div class="bar-bg">
+                                <div class="bar-fill" style="width: ${percentage}%; background: ${percentColor}"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="match-card-actions">
+                        <button class="btn-action secondary" onclick="messageMatch(${match.user.id}, '${match.user.name}')">
+                            <i class="ph ph-chat-circle"></i>
+                        </button>
+                        <button class="btn-action primary" onclick="connectWithUser(${match.user.id}, '${match.user.name}')">
+                            <i class="ph ph-user-plus"></i> Connetti
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Apri/chiudi pannello ricerca
+    function openMatchSearch() {
+        document.getElementById('matchSearchPanel').style.display = 'block';
+    }
+
+    function closeMatchSearch() {
+        document.getElementById('matchSearchPanel').style.display = 'none';
+    }
+
+    function resetMatchSearch() {
+        document.getElementById('searchSkill').value = '';
+        document.getElementById('minCompatibility').value = '0';
+        document.getElementById('sortBy').value = 'compatibility';
+        renderMatchSection(allMatchesData);
+    }
+
+    // Cerca match con filtri
+    function searchMatches() {
+        const skillFilter = document.getElementById('searchSkill').value.toLowerCase().trim();
+        const minCompat = parseInt(document.getElementById('minCompatibility').value);
+        const sortBy = document.getElementById('sortBy').value;
+        
+        let filtered = allMatchesData.filter(match => {
+            const hasSkill = !skillFilter || 
+                match.compatibility.commonTags.some(tag => 
+                    tag.toLowerCase().includes(skillFilter)
+                );
+            const hasMinCompat = match.compatibility.percentage >= minCompat;
+            return hasSkill && hasMinCompat;
+        });
+        
+        // Ordina
+        if (sortBy === 'compatibility') {
+            filtered.sort((a, b) => b.compatibility.percentage - a.compatibility.percentage);
+        } else if (sortBy === 'name') {
+            filtered.sort((a, b) => a.user.name.localeCompare(b.user.name));
+        }
+        
+        renderMatchSection(filtered);
+        updateMatchStats(filtered);
+    }
+
+    // Cambia vista (griglia/lista)
+    function setViewMode(mode) {
+        currentViewMode = mode;
+        const container = document.getElementById('matchSectionGrid');
+        const buttons = document.querySelectorAll('.view-toggle .btn-icon');
+        
+        buttons.forEach(btn => btn.classList.remove('active'));
+        event.target.closest('.btn-icon').classList.add('active');
+        
+        container.className = `matches-grid-innovative ${mode}`;
+        renderMatchSection(allMatchesData);
+    }
+
+    // Refresh sezione match
+    function refreshMatchSection() {
+        loadMatchSection();
+    }
+
+    // Carica match per tag specifico
+    function loadMatchesByTag(tag) {
+        document.getElementById('searchSkill').value = tag;
+        document.getElementById('minCompatibility').value = '0';
+        openMatchSearch();
+        searchMatches();
+    }
+
+    // Messaggio a un match
+    function messageMatch(userId, userName) {
+        console.log(`💬 Messaggio a ${userName} (ID: ${userId})`);
+        alert(`Funzionalità messaggio a ${userName} in sviluppo! 🚧`);
     }
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         updateWelcomeMessage();
+        loadProfileData();
+        
+        // 🎯 Carica i match dopo un breve delay per permettere l'autenticazione
+        setTimeout(() => {
+            loadMatches();
+        }, 1000);
+        
+        // ✨ Inizializza effetti interattivi per le card match
+        initMatchCardEffects();
     });
+    
+    // ✨ Effetti interattivi per le card match
+    function initMatchCardEffects() {
+        document.addEventListener('mouseover', function(e) {
+            const card = e.target.closest('.match-card-innovative');
+            if (card) {
+                card.style.transform = 'translateY(-8px) scale(1.02)';
+            }
+        });
+        
+        document.addEventListener('mouseout', function(e) {
+            const card = e.target.closest('.match-card-innovative');
+            if (card) {
+                card.style.transform = '';
+            }
+        });
+    }
 </script>
-<script src="script.js"></script>
+
+<!-- 🔔 SISTEMA NOTIFICHE -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================
+// 🔔 SISTEMA NOTIFICHE - FRONTEND
+// ============================================
+
+const API_BASE_URL = 'http://localhost:3001/api';
+
+let notificationsData = [];
+let notificationInterval = null;
+
+// Toggle dropdown notifiche
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    const btn = document.getElementById('notificationBtn');
+    
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+        btn.classList.add('active');
+        loadNotifications();
+    } else {
+        dropdown.style.display = 'none';
+        btn.classList.remove('active');
+    }
+}
+
+// Chiudi dropdown quando clicchi fuori
+document.addEventListener('click', function(e) {
+    const container = document.getElementById('notificationContainer');
+    const dropdown = document.getElementById('notificationDropdown');
+    
+    if (container && !container.contains(e.target) && dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        document.getElementById('notificationBtn').classList.remove('active');
+    }
+});
+
+// Carica notifiche dal server
+async function loadNotifications() {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        const response = await fetch(`${API_BASE_URL}/notifications?status=pending&limit=20`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load notifications');
+        
+        const data = await response.json();
+        notificationsData = data.notifications || [];
+        
+        updateNotificationBadge(data.unreadCount || 0);
+        renderNotifications();
+        
+    } catch (error) {
+        console.error('❌ Error loading notifications:', error);
+    }
+}
+
+// Aggiorna badge
+function updateNotificationBadge(count) {
+    const badge = document.getElementById('notificationBadge');
+    const countText = document.getElementById('notificationCount');
+    const matchMenuBadge = document.getElementById('matchMenuBadge');
+    const requestsMenuBadge = document.getElementById('requestsMenuBadge');
+    
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'flex';
+        badge.classList.add('pulse');
+        countText.textContent = `${count} nuove`;
+        
+        // Mostra badge anche sul menu Match
+        if (matchMenuBadge) {
+            matchMenuBadge.style.display = 'inline-flex';
+            matchMenuBadge.textContent = count > 9 ? '9+' : count;
+        }
+        
+        // Mostra badge sul menu Richieste con numero
+        if (requestsMenuBadge) {
+            requestsMenuBadge.style.display = 'inline-flex';
+            requestsMenuBadge.textContent = count > 99 ? '99+' : count;
+        }
+        
+        // Riproduci suono se ci sono nuove notifiche
+        playNotificationSound();
+        
+    } else {
+        badge.style.display = 'none';
+        countText.textContent = '0 nuove';
+        
+        // Nascondi badge menu Match
+        if (matchMenuBadge) {
+            matchMenuBadge.style.display = 'none';
+        }
+        
+        // Nascondi badge menu Richieste
+        if (requestsMenuBadge) {
+            requestsMenuBadge.style.display = 'none';
+        }
+    }
+}
+
+// Render notifiche in dropdown
+function renderNotifications() {
+    const list = document.getElementById('notificationList');
+    
+    if (notificationsData.length === 0) {
+        list.innerHTML = '<p class="notification-empty">Nessuna notifica</p>';
+        return;
+    }
+    
+    list.innerHTML = notificationsData.map(notif => {
+        const isUnread = notif.status === 'pending';
+        const iconClass = notif.type === 'match_request' ? 'match' : 
+                         notif.type === 'match_accepted' ? 'accepted' : 
+                         notif.type === 'match_rejected' ? 'rejected' : 'message';
+        
+        const icon = notif.type === 'match_request' ? 'ph-heart' : 
+                     notif.type === 'match_accepted' ? 'ph-check' : 
+                     notif.type === 'match_rejected' ? 'ph-x' : 'ph-chat-circle';
+        
+        const timeAgo = formatTimeAgo(new Date(notif.created_at));
+        
+        let actions = '';
+        if (notif.type === 'match_request' && notif.status === 'pending') {
+            actions = `
+                <div class="notification-actions">
+                    <button class="btn-accept" onclick="respondToMatch(${notif.id}, 'accepted'); event.stopPropagation();">
+                        <i class="ph ph-check"></i> Accetta
+                    </button>
+                    <button class="btn-reject" onclick="respondToMatch(${notif.id}, 'rejected'); event.stopPropagation();">
+                        <i class="ph ph-x"></i> Rifiuta
+                    </button>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="notification-item ${isUnread ? 'unread' : ''}" data-id="${notif.id}">
+                <div class="notification-icon ${iconClass}">
+                    <i class="ph ${icon}"></i>
+                </div>
+                <div class="notification-content">
+                    <p><strong>${notif.sender_name}</strong> ${getNotificationText(notif.type)}</p>
+                    <span>${timeAgo}</span>
+                    ${actions}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function getNotificationText(type) {
+    const texts = {
+        'match_request': 'vuole fare match con te',
+        'match_accepted': 'ha accettato il tuo match',
+        'match_rejected': 'ha rifiutato il tuo match',
+        'message': 'ti ha inviato un messaggio'
+    };
+    return texts[type] || 'ha inviato una notifica';
+}
+
+function formatTimeAgo(date) {
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    
+    if (diff < 60) return 'Adesso';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min fa`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ore fa`;
+    return `${Math.floor(diff / 86400)} giorni fa`;
+}
+
+// Rispondi a richiesta match
+async function respondToMatch(notificationId, response) {
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const res = await fetch(`${API_BASE_URL}/match/respond`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ notificationId, response })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(
+                response === 'accepted' ? 'success' : 'info',
+                response === 'accepted' ? 'Match accettato!' : 'Richiesta rifiutata',
+                data.message
+            );
+            
+            // Rimuovi notifica dalla lista
+            notificationsData = notificationsData.filter(n => n.id !== notificationId);
+            updateNotificationBadge(notificationsData.filter(n => n.status === 'pending').length);
+            renderNotifications();
+            
+            // Se accettato, aggiorna lista connessioni
+            if (response === 'accepted') {
+                loadConnections();
+            }
+        } else {
+            showToast('error', 'Errore', data.error || 'Qualcosa è andato storto');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error responding to match:', error);
+        showToast('error', 'Errore', 'Impossibile rispondere alla richiesta');
+    }
+}
+
+// Mark all as read
+async function markAllRead() {
+    // Per semplicità, le notifiche pending rimangono visibili fino a risposta
+    showToast('info', 'Notifiche', 'Le richieste di match rimangono attive fino alla risposta');
+}
+
+// ============================================
+// 🍞 TOAST NOTIFICATIONS SYSTEM
+// ============================================
+
+function showToast(type, title, message, duration = 5000) {
+    const container = document.getElementById('toastContainer');
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icons = {
+        success: 'ph-check-circle',
+        error: 'ph-x-circle',
+        info: 'ph-info'
+    };
+    
+    toast.innerHTML = `
+        <div class="toast-icon">
+            <i class="ph ${icons[type]}"></i>
+        </div>
+        <div class="toast-content">
+            <h4>${title}</h4>
+            <p>${message}</p>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+            <i class="ph ph-x"></i>
+        </button>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Riproduci suono per notifiche importanti
+    if (type === 'success' || type === 'info') {
+        playNotificationSound();
+    }
+    
+    // Auto-dismiss
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// Suono notifica (soft beep)
+function playNotificationSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+        // Audio non supportato, ignorare
+    }
+}
+
+// ============================================
+// 🔄 POLLING NOTIFICHE (Real-time simulation)
+// ============================================
+
+function startNotificationPolling() {
+    // Carica subito
+    loadNotifications();
+    
+    // Polling ogni 5 secondi per notifiche in tempo reale
+    notificationInterval = setInterval(() => {
+        loadNotifications();
+    }, 5000);
+}
+
+function stopNotificationPolling() {
+    if (notificationInterval) {
+        clearInterval(notificationInterval);
+        notificationInterval = null;
+    }
+}
+
+// Carica tutte le notifiche (ricevute e inviate)
+async function loadAllNotifications() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        showToast('error', 'Errore', 'Devi essere loggato per vedere le richieste');
+        return;
+    }
+    
+    console.log('🔍 loadAllNotifications - START');
+    console.log('🔍 API_BASE_URL:', API_BASE_URL);
+    console.log('🔍 Token presente:', !!token);
+    
+    try {
+        // Carica richieste ricevute (pending)
+        console.log('🔍 Fetching received notifications...');
+        const receivedUrl = `${API_BASE_URL}/notifications?status=pending&limit=50`;
+        console.log('🔍 URL:', receivedUrl);
+        
+        const receivedResponse = await fetch(receivedUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        console.log('🔍 receivedResponse status:', receivedResponse.status);
+        console.log('🔍 receivedResponse ok:', receivedResponse.ok);
+        
+        if (receivedResponse.ok) {
+            const receivedData = await receivedResponse.json();
+            console.log('🔍 receivedData:', receivedData);
+            console.log('🔍 Notifiche ricevute:', receivedData.notifications?.length || 0);
+            renderRequestsList('receivedRequestsList', receivedData.notifications || [], 'received');
+        } else {
+            const errorText = await receivedResponse.text();
+            console.error('❌ Errore ricevute:', errorText);
+        }
+        
+        // Carica richieste inviate (tutte)
+        console.log('🔍 Fetching sent notifications...');
+        const sentUrl = `${API_BASE_URL}/notifications/sent?limit=50`;
+        console.log('🔍 URL:', sentUrl);
+        
+        const sentResponse = await fetch(sentUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        console.log('🔍 sentResponse status:', sentResponse.status);
+        console.log('🔍 sentResponse ok:', sentResponse.ok);
+        
+        if (sentResponse.ok) {
+            const sentData = await sentResponse.json();
+            console.log('🔍 sentData:', sentData);
+            console.log('🔍 Notifiche inviate:', sentData.notifications?.length || 0);
+            renderRequestsList('sentRequestsList', sentData.notifications || [], 'sent');
+        } else {
+            const errorText = await sentResponse.text();
+            console.error('❌ Errore inviate:', errorText);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading all notifications:', error);
+        showToast('error', 'Errore', 'Impossibile caricare le richieste');
+    }
+    
+    console.log('🔍 loadAllNotifications - END');
+}
+
+// Refresh richieste
+function refreshRequests() {
+    loadAllNotifications();
+    showToast('info', 'Aggiornamento', 'Richieste aggiornate');
+}
+
+// Render lista richieste
+function renderRequestsList(elementId, notifications, type) {
+    const container = document.getElementById(elementId);
+    
+    if (!container) return;
+    
+    if (notifications.length === 0) {
+        container.innerHTML = `<p class="empty-requests">${type === 'received' ? 'Nessuna richiesta ricevuta' : 'Nessuna richiesta inviata'}</p>`;
+        return;
+    }
+    
+    container.innerHTML = notifications.map(n => {
+        const isPending = n.status === 'pending';
+        const statusClass = isPending ? 'pending' : (n.status === 'accepted' ? 'accepted' : 'rejected');
+        const statusText = isPending ? '⏳ In attesa' : (n.status === 'accepted' ? '✅ Accettata' : '❌ Rifiutata');
+        
+        return `
+            <div class="request-item ${statusClass}">
+                <div class="request-avatar">
+                    <i class="ph ph-user-circle"></i>
+                </div>
+                <div class="request-info">
+                    <h4>${n.sender_name || n.receiver_name || 'Utente'}</h4>
+                    <p class="request-email">${n.sender_email || n.receiver_email || ''}</p>
+                    <span class="request-status ${statusClass}">${statusText}</span>
+                    <span class="request-date">${new Date(n.created_at).toLocaleDateString('it-IT')}</span>
+                </div>
+                ${type === 'received' && isPending ? `
+                    <div class="request-actions">
+                        <button class="btn-success btn-small" onclick="respondToMatch(${n.id}, 'accepted')">
+                            <i class="ph ph-check"></i> Accetta
+                        </button>
+                        <button class="btn-danger btn-small" onclick="respondToMatch(${n.id}, 'rejected')">
+                            <i class="ph ph-x"></i> Rifiuta
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================
+// 💬 CHAT SYSTEM
+// ============================================
+
+let currentChatUser = null;
+let chatRefreshInterval = null;
+
+// Apri chat con utente
+function openChat(userId, userName) {
+    currentChatUser = { id: userId, name: userName };
+    
+    // Mostra sezione chat
+    showSection('chatSection');
+    
+    // Mostra header e input area
+    document.getElementById('chatHeader').style.display = 'flex';
+    document.getElementById('chatInputArea').style.display = 'flex';
+    
+    // Aggiorna header
+    document.getElementById('chatHeaderName').textContent = userName;
+    document.getElementById('chatHeaderAvatar').textContent = userName.charAt(0).toUpperCase();
+    document.getElementById('chatHeaderStatus').textContent = 'Online';
+    
+    // Carica messaggi
+    loadMessages(userId);
+    
+    // Setup input
+    setupChatInput(userId);
+    
+    // Start polling messaggi
+    startChatPolling(userId);
+    
+    // Aggiorna contatore
+    document.getElementById('connectionsCount').textContent = `${connectionsData.length} connession${connectionsData.length === 1 ? 'e' : 'i'} attive`;
+}
+
+async function loadMessages(userId) {
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_BASE_URL}/messages/${userId}?limit=50`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load messages');
+        
+        const data = await response.json();
+        renderMessages(data.messages || []);
+        
+    } catch (error) {
+        console.error('❌ Error loading messages:', error);
+        showToast('error', 'Errore', 'Impossibile caricare i messaggi');
+    }
+}
+
+function renderMessages(messages) {
+    const container = document.getElementById('chatMessages');
+    if (!container) return;
+    
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    
+    container.innerHTML = messages.map(msg => {
+        const isMe = msg.sender_id === currentUser.id;
+        const time = new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        
+        return `
+            <div class="message ${isMe ? 'sent' : 'received'}">
+                <div class="message-content">
+                    <p>${escapeHtml(msg.content)}</p>
+                    <span class="message-time">${time}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
+
+function setupChatInput(userId) {
+    const input = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendMessageBtn');
+    
+    if (sendBtn) {
+        sendBtn.onclick = () => sendMessage(userId);
+    }
+    
+    if (input) {
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter') sendMessage(userId);
+        };
+    }
+}
+
+async function sendMessage(userId) {
+    const input = document.getElementById('chatInput');
+    const content = input?.value?.trim();
+    
+    if (!content) return;
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_BASE_URL}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ receiverId: userId, content })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            input.value = '';
+            loadMessages(userId); // Refresh
+        } else {
+            showToast('error', 'Errore', data.error || 'Impossibile inviare messaggio');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error sending message:', error);
+        showToast('error', 'Errore', 'Impossibile inviare messaggio');
+    }
+}
+
+function startChatPolling(userId) {
+    stopChatPolling();
+    chatRefreshInterval = setInterval(() => {
+        loadMessages(userId);
+    }, 3000); // Ogni 3 secondi
+}
+
+function stopChatPolling() {
+    if (chatRefreshInterval) {
+        clearInterval(chatRefreshInterval);
+        chatRefreshInterval = null;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================
+// 🤝 CONNESSIONI (MATCH ACCETTATI)
+// ============================================
+
+let connectionsData = [];
+
+async function loadConnections() {
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_BASE_URL}/connections`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load connections');
+        
+        const data = await response.json();
+        connectionsData = data.connections || [];
+        renderConnections();
+        
+    } catch (error) {
+        console.error('❌ Error loading connections:', error);
+    }
+}
+
+function renderConnections() {
+    // Render nella sezione chat o match
+    const container = document.getElementById('connectionsList');
+    if (!container) return;
+    
+    if (connectionsData.length === 0) {
+        container.innerHTML = '<p class="empty-state">Nessun match ancora. Inizia a cercare!</p>';
+        return;
+    }
+    
+    container.innerHTML = connectionsData.map(conn => `
+        <div class="connection-item" onclick="openChat(${conn.other_user_id}, '${conn.name}')">
+            <div class="connection-avatar">${conn.name.charAt(0).toUpperCase()}</div>
+            <div class="connection-info">
+                <h4>${conn.name}</h4>
+                <p>${conn.skills?.slice(0, 3).join(', ') || 'Nessuna skill'}</p>
+            </div>
+            <button class="btn-icon" onclick="event.stopPropagation(); openChat(${conn.other_user_id}, '${conn.name}')">
+                <i class="ph ph-chat-circle"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+// ============================================
+// 🔍 RICERCA E RICHIESTA MATCH
+// ============================================
+
+function openMatchRequestModal() {
+    // Cerca utente per email o mostra lista
+    showToast('info', 'Match', 'Clicca su "Collega" in una card match per inviare richiesta');
+}
+
+// Modifica la funzione messageMatch esistente
+function connectWithUser(userId, userName) {
+    // Invia richiesta match
+    sendMatchRequest(userId, userName);
+}
+
+function messageMatch(userId, userName) {
+    // Se c'è già una connessione, apri chat, altrimenti invia richiesta
+    const existing = connectionsData.find(c => c.other_user_id === userId);
+    if (existing) {
+        openChat(userId, userName);
+    } else {
+        showToast('info', 'Info', 'Devi fare match prima di poter chattare!');
+        sendMatchRequest(userId, userName);
+    }
+}
+
+async function sendMatchRequest(receiverId, receiverName) {
+    try {
+        // Validazione ID
+        receiverId = parseInt(receiverId);
+        if (!receiverId || isNaN(receiverId)) {
+            showToast('error', 'Errore', 'ID destinatario non valido');
+            return;
+        }
+        
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            showToast('error', 'Errore', 'Devi essere loggato per inviare richieste');
+            return;
+        }
+        
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (currentUser.id === receiverId) {
+            showToast('error', 'Errore', 'Non puoi fare match con te stesso');
+            return;
+        }
+        
+        console.log('🔍 Sending match request:', { senderId: currentUser.id, receiverId, receiverName });
+        
+        const response = await fetch(`${API_BASE_URL}/match/request`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ receiverId })
+        });
+        
+        console.log('📡 Response:', { status: response.status, ok: response.ok });
+        
+        const data = await response.json();
+        console.log('📦 Response data:', data);
+        
+        if (data.success) {
+            showToast('success', '✅ Richiesta inviata!', `Hai chiesto di fare match con ${receiverName}. Aspetta che accetti!`);
+        } else if (response.status === 409) {
+            showToast('info', 'ℹ️ Info', data.error || 'Richiesta già inviata o match già esistente');
+        } else if (response.status === 400) {
+            showToast('error', '❌ Errore', data.error || 'Dati non validi');
+        } else {
+            showToast('error', '❌ Errore server', data.error || `Errore ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error sending match request:', error);
+        showToast('error', '❌ Errore di rete', error.message);
+    }
+}
+
+// Pulisci badge menu Match quando utente vede la sezione
+function clearMatchBadge() {
+    const matchMenuBadge = document.getElementById('matchMenuBadge');
+    if (matchMenuBadge) {
+        matchMenuBadge.style.display = 'none';
+    }
+}
+
+// ============================================
+// 🚀 INIZIALIZZAZIONE
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Start notification polling dopo auth
+    setTimeout(() => {
+        startNotificationPolling();
+        loadConnections();
+    }, 1500);
+});
+</script>
+
+<script src="scripts/script.js"></script>
 </body>
 </html>

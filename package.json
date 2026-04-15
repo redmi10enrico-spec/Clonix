@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start-local": "node server-sqlite.js",
     "start-all": "node start-servers.js",
     "dev": "nodemon server.js",
     "init-db": "node scripts/init-database.js",
@@ -21,6 +22,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.6.5",
+    "sqlite3": "^5.1.7",
     "validator": "^13.11.0"
   },
   "devDependencies": {

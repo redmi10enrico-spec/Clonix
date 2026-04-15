@@ -238,7 +238,7 @@
                     localStorage.setItem('rememberUser', email);
                 }
                 localStorage.setItem('authToken', data.token);
-                sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
                 
                 // Redirect to dashboard
                 setTimeout(() => {
@@ -246,7 +246,11 @@
                 }, 1500);
                 
             } catch (error) {
-                showError(error.message);
+                if (error.message === 'Failed to fetch' || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    showError('Server non disponibile. Riprova tra qualche secondo o contatta l\'amministratore.');
+                } else {
+                    showError(error.message);
+                }
             } finally {
                 setLoading('loginBtn', false);
             }
@@ -293,7 +297,7 @@
                 
                 // Store session and token
                 localStorage.setItem('authToken', data.token);
-                sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
                 
                 // Redirect to dashboard
                 setTimeout(() => {
@@ -301,7 +305,11 @@
                 }, 1500);
                 
             } catch (error) {
-                showError(error.message);
+                if (error.message === 'Failed to fetch' || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    showError('Server non disponibile. Riprova tra qualche secondo o contatta l\'amministratore.');
+                } else {
+                    showError(error.message);
+                }
             } finally {
                 setLoading('registerBtn', false);
             }
@@ -356,7 +364,7 @@
                     
                     // Store session and token
                     localStorage.setItem('authToken', loginData.token);
-                    sessionStorage.setItem('currentUser', JSON.stringify(loginData.user));
+                    localStorage.setItem('currentUser', JSON.stringify(loginData.user));
                     
                     setTimeout(() => {
                         window.location.href = 'index.html';
@@ -371,7 +379,11 @@
                 }
                 
             } catch (error) {
-                showError(error.message);
+                if (error.message === 'Failed to fetch' || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    showError('Server non disponibile. Riprova tra qualche secondo o contatta l\'amministratore.');
+                } else {
+                    showError(error.message);
+                }
             }
         }
 

@@ -76,17 +76,23 @@
                 console.error('Error parameter found:', params.error);
                 successContent.style.display = 'none';
                 errorContent.style.display = 'block';
-            } else if (params.token && params.user) {
+            } else if (params.token && params.user && params.user !== 'undefined' && params.user !== 'null') {
                 try {
                     console.log('Parsing user data...');
                     const user = JSON.parse(decodeURIComponent(params.user));
+                    
+                    // Validate user object has required fields
+                    if (!user || !user.id || !user.email) {
+                        throw new Error('Invalid user data: missing required fields');
+                    }
+                    
                     console.log('User parsed successfully:', user);
                     
                     // Store auth data
                     console.log('Storing token in localStorage...');
                     localStorage.setItem('authToken', params.token);
-                    console.log('Storing user in sessionStorage...');
-                    sessionStorage.setItem('currentUser', JSON.stringify(user));
+                    console.log('Storing user in localStorage...');
+                    localStorage.setItem('currentUser', JSON.stringify(user));
                     console.log('Data stored successfully!');
                     
                     // Show success and redirect
@@ -100,6 +106,11 @@
                     console.error('Error parsing user data:', error);
                     successContent.style.display = 'none';
                     errorContent.style.display = 'block';
+                    // Update error message to show retry button
+                    const errorText = errorContent.querySelector('p');
+                    if (errorText) {
+                        errorText.innerHTML = 'Si è verificato un errore durante il login. <br><a href="auth.html" style="color: #fff; text-decoration: underline;">Torna alla pagina di login</a>';
+                    }
                 }
             } else {
                 console.error('Missing token or user parameter');
