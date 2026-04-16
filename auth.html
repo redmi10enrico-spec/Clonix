@@ -228,10 +228,10 @@
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Login failed');
+                    throw new Error(data.error || 'Login fallito');
                 }
                 
-                showSuccess('Login successful! Redirecting...');
+                showSuccess('Login effettuato! Reindirizzamento...');
                 
                 // Store session and token
                 if (rememberMe) {
@@ -290,10 +290,10 @@
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Registration failed');
+                    throw new Error(data.error || 'Registrazione fallita');
                 }
                 
-                showSuccess('Account creato con successo! Redirect...');
+                showSuccess('Account creato con successo! Reindirizzamento...');
                 
                 // Store session and token
                 localStorage.setItem('authToken', data.token);
@@ -317,19 +317,19 @@
 
         async function handleGoogleLogin() {
             try {
-                showSuccess('Connecting to Google...');
+                showSuccess('Connessione a Google...');
                 
                 // Get Google auth URL
                 const response = await fetch(`${API_BASE_URL}/auth/google`);
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to connect to Google');
+                    throw new Error(data.error || 'Connessione a Google fallita');
                 }
                 
                 if (data.setup) {
                     // Setup mode - show detailed instructions
-                    showSuccess('Google OAuth setup required. Check console for instructions.');
+                    showSuccess('Configurazione Google OAuth richiesta. Controlla la console per istruzioni.');
                     console.log('=== GOOGLE OAUTH SETUP INSTRUCTIONS ===');
                     console.log('To enable real Google OAuth with account selection:');
                     data.instructions.forEach((instruction, index) => {
@@ -357,10 +357,10 @@
                     const loginData = await loginResponse.json();
                     
                     if (!loginResponse.ok) {
-                        throw new Error(loginData.error || 'Google login failed');
+                        throw new Error(loginData.error || 'Login Google fallito');
                     }
                     
-                    showSuccess('Demo Google login successful! Redirecting...');
+                    showSuccess('Login Google demo effettuato! Reindirizzamento...');
                     
                     // Store session and token
                     localStorage.setItem('authToken', loginData.token);
@@ -375,7 +375,7 @@
                     showSuccess('Redirecting to Google for account selection...');
                     window.location.href = data.authUrl;
                 } else {
-                    throw new Error('No Google auth URL available');
+                    throw new Error('Nessun URL di autenticazione Google disponibile');
                 }
                 
             } catch (error) {

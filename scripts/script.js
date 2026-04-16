@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sections = {
         dashboard: document.getElementById('dashboardSection'),
         match: document.getElementById('matchSection'),
+        requests: document.getElementById('requestsSection'),
+        spotlight: document.getElementById('spotlightSection'),
         chat: document.getElementById('chatSection'),
         groups: document.getElementById('groupsSection'),
         profile: document.getElementById('profileSection'),
@@ -44,6 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 showSection('dashboard');
             } else if (text.includes('match')) {
                 showSection('match');
+            } else if (text.includes('richieste')) {
+                showSection('requests');
+            } else if (text.includes('spotlight')) {
+                showSection('spotlight');
             } else if (text.includes('chat')) {
                 showSection('chat');
             } else if (text.includes('gruppi')) {

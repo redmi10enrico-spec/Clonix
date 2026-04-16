@@ -8,7 +8,12 @@ const rateLimit = require('express-rate-limit');
 const validator = require('validator');
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
-require('dotenv').config({ path: '../.env' });
+const multer = require('multer');
+const sharp = require('sharp');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 
@@ -26,7 +31,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 500, // limit each IP to 500 requests per windowMs (aumentato per polling)
     message: { error: 'Too many requests, please try again later' }
 });
 app.use('/api/', limiter);
@@ -61,6 +66,8 @@ async function initDatabase() {
         await createNotificationsTable();
         await createConnectionsTable();
         await createMessagesTable();
+        await createProjectsTable();
+        await createProjectVotesTable();
         
         // Setup error handler for pool
         db.on('error', async (err) => {
@@ -71,8 +78,9 @@ async function initDatabase() {
         });
         
     } catch (error) {
-        console.error('Database connection failed:', error);
-        process.exit(1);
+        console.error('❌ Database connection failed:', error.message);
+        console.log('⚠️  Server continuerà senza database. Alcune funzionalità non saranno disponibili.');
+        // Non fare process.exit(1) - il server continua anche senza DB
     }
 }
 
@@ -402,7 +410,7 @@ app.get('/api/health', async (req, res) => {
             database: 'connected',
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
-            endpoints: ['/api/matches/:userId', '/api/users/:userId/skills']
+            endpoints: ['/api/matches/:userId', '/api/users/:userId/skills', '/api/projects', '/api/projects/:id/vote']
         });
     } catch (error) {
         res.status(503).json({ 
@@ -412,6 +420,21 @@ app.get('/api/health', async (req, res) => {
             timestamp: new Date().toISOString()
         });
     }
+});
+
+// Test endpoint for Spotlight
+app.get('/api/projects/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Spotlight API is working',
+        endpoints: [
+            'GET /api/projects - List all projects',
+            'POST /api/projects - Create project (requires auth)',
+            'GET /api/projects/my - List my projects',
+            'POST /api/projects/:id/vote - Vote for project'
+        ],
+        imageProcessing: sharpAvailable ? 'sharp (compressed)' : 'fs (original)'
+    });
 });
 
 // Simple test endpoint for matching system (no auth required for testing)
@@ -985,6 +1008,62 @@ async function createMessagesTable() {
 }
 
 // ============================================
+// 🎯 TABELLE SPOTLIGHT (PROJECTS SHOWCASE)
+// ============================================
+
+// Crea tabella projects
+async function createProjectsTable() {
+    const query = `
+        CREATE TABLE IF NOT EXISTS projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            title VARCHAR(100) NOT NULL,
+            description VARCHAR(120) NOT NULL,
+            image_url VARCHAR(500) NOT NULL,
+            link VARCHAR(500) DEFAULT NULL,
+            tags JSON DEFAULT NULL,
+            interested_count INT DEFAULT 0,
+            collaborate_count INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_user_id (user_id),
+            INDEX idx_created_at (created_at),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `;
+    try {
+        await db.execute(query);
+        console.log('✅ Projects table ready (Spotlight)');
+    } catch (error) {
+        console.error('❌ Error creating projects table:', error.message);
+    }
+}
+
+// Crea tabella project_votes
+async function createProjectVotesTable() {
+    const query = `
+        CREATE TABLE IF NOT EXISTS project_votes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_id INT NOT NULL,
+            user_id INT NOT NULL,
+            type ENUM('interested', 'collaborate') NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_vote (project_id, user_id),
+            INDEX idx_project_id (project_id),
+            INDEX idx_user_id (user_id),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `;
+    try {
+        await db.execute(query);
+        console.log('✅ Project votes table ready (Spotlight)');
+    } catch (error) {
+        console.error('❌ Error creating project_votes table:', error.message);
+    }
+}
+
+// ============================================
 // API NOTIFICHE
 // ============================================
 
@@ -1071,7 +1150,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
              WHERE n.receiver_id = ? AND n.status = ?
              ORDER BY n.created_at DESC
              LIMIT ?`,
-            [userId, status, limit]
+            [parseInt(userId), String(status), parseInt(limit)]
         );
         
         console.log(`🔔 Trovate ${notifications.length} notifiche per userId=${userId}`);
@@ -1079,7 +1158,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
         // Conta notifiche non lette
         const [count] = await db.execute(
             `SELECT COUNT(*) as unread FROM notifications WHERE receiver_id = ? AND status = 'pending'`,
-            [userId]
+            [parseInt(userId)]
         );
         
         res.json({
@@ -1326,6 +1405,438 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
 });
 
 // ============================================
+// 🎯 API SPOTLIGHT (PROJECTS SHOWCASE)
+// ============================================
+
+// Configurazione upload immagini
+const uploadsDir = path.join(__dirname, '..', 'uploads', 'projects');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Verifica che sharp sia disponibile (può fallire su Windows se non installato correttamente)
+let sharpAvailable = false;
+try {
+    require('sharp');
+    sharpAvailable = true;
+    console.log('✅ Sharp image processing available');
+} catch (err) {
+    console.warn('⚠️  Sharp not available, image compression disabled:', err.message);
+}
+
+// Multer configuration per upload temporaneo
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Tipo file non supportato. Usa JPEG, PNG, WEBP o GIF'), false);
+        }
+    }
+});
+
+// POST /api/projects - Crea nuovo progetto
+app.post('/api/projects', authenticateToken, upload.single('image'), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { title, description, link, tags } = req.body;
+        
+        // Validazione
+        if (!title || !description) {
+            return res.status(400).json({
+                success: false,
+                error: 'Titolo e descrizione sono obbligatori'
+            });
+        }
+        
+        if (title.length > 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Il titolo deve essere massimo 100 caratteri'
+            });
+        }
+        
+        if (description.length > 120) {
+            return res.status(400).json({
+                success: false,
+                error: 'La descrizione deve essere massimo 120 caratteri'
+            });
+        }
+        
+        // Verifica limite 3 progetti per utente
+        const [existingProjects] = await db.execute(
+            'SELECT COUNT(*) as count FROM projects WHERE user_id = ?',
+            [userId]
+        );
+        
+        if (existingProjects[0].count >= 3) {
+            return res.status(403).json({
+                success: false,
+                error: 'Hai raggiunto il limite massimo di 3 progetti. Elimina un progetto esistente per crearne uno nuovo.'
+            });
+        }
+        
+        let imageUrl = null;
+        
+        // Processa e comprimi immagine se presente
+        if (req.file) {
+            try {
+                let filename, filepath;
+                
+                if (sharpAvailable) {
+                    // Usa sharp per comprimere
+                    const sharp = require('sharp');
+                    filename = `${uuidv4()}.webp`;
+                    filepath = path.join(uploadsDir, filename);
+                    
+                    await sharp(req.file.buffer)
+                        .resize(800, 600, { fit: 'inside', withoutEnlargement: true })
+                        .webp({ quality: 85, effort: 4 })
+                        .toFile(filepath);
+                    
+                    imageUrl = `/uploads/projects/${filename}`;
+                    console.log(`✅ Immagine compressa e salvata: ${filename}`);
+                } else {
+                    // Fallback: salva l'immagine originale senza compressione
+                    const ext = req.file.mimetype.split('/')[1] || 'jpg';
+                    filename = `${uuidv4()}.${ext}`;
+                    filepath = path.join(uploadsDir, filename);
+                    
+                    fs.writeFileSync(filepath, req.file.buffer);
+                    
+                    imageUrl = `/uploads/projects/${filename}`;
+                    console.log(`✅ Immagine salvata (no compression): ${filename}`);
+                }
+            } catch (imgError) {
+                console.error('❌ Errore salvataggio immagine:', imgError);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Errore durante l\'elaborazione dell\'immagine'
+                });
+            }
+        } else {
+            // Immagine placeholder di default
+            imageUrl = '/assets/project-placeholder.svg';
+        }
+        
+        // Parse tags
+        let parsedTags = [];
+        if (tags) {
+            try {
+                parsedTags = JSON.parse(tags);
+                if (!Array.isArray(parsedTags)) parsedTags = [];
+            } catch (e) {
+                parsedTags = [];
+            }
+        }
+        
+        // Inserisci progetto
+        const [result] = await db.execute(
+            `INSERT INTO projects (user_id, title, description, image_url, link, tags) 
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [userId, title.trim(), description.trim(), imageUrl, link || null, JSON.stringify(parsedTags)]
+        );
+        
+        console.log(`✅ Progetto creato: ID=${result.insertId}, User=${userId}`);
+        
+        res.status(201).json({
+            success: true,
+            message: 'Progetto creato con successo',
+            project: {
+                id: result.insertId,
+                user_id: userId,
+                title: title.trim(),
+                description: description.trim(),
+                image_url: imageUrl,
+                link: link || null,
+                tags: parsedTags,
+                interested_count: 0,
+                collaborate_count: 0,
+                created_at: new Date()
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error creating project:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante la creazione del progetto'
+        });
+    }
+});
+
+// GET /api/projects - Lista progetti
+app.get('/api/projects', authenticateToken, async (req, res) => {
+    try {
+        const { sort = 'recent', limit = 20, offset = 0 } = req.query;
+        const userId = parseInt(req.user.id);
+        const limitNum = parseInt(limit) || 20;
+        const offsetNum = parseInt(offset) || 0;
+        
+        console.log(`📊 GET /api/projects - userId: ${userId}, sort: ${sort}, limit: ${limitNum}, offset: ${offsetNum}`);
+        
+        let query, params;
+        
+        if (sort === 'popular') {
+            // Ordina per popolarità
+            query = `SELECT p.*, 
+                    u.name as author_name, u.avatar_url as author_avatar,
+                    pv.type as user_vote
+             FROM projects p
+             JOIN users u ON p.user_id = u.id
+             LEFT JOIN project_votes pv ON p.id = pv.project_id AND pv.user_id = ?
+             ORDER BY (p.interested_count + p.collaborate_count) DESC, p.created_at DESC
+             LIMIT ${limitNum} OFFSET ${offsetNum}`;
+            params = [userId];
+        } else {
+            // Ordina per data (default)
+            query = `SELECT p.*, 
+                    u.name as author_name, u.avatar_url as author_avatar,
+                    pv.type as user_vote
+             FROM projects p
+             JOIN users u ON p.user_id = u.id
+             LEFT JOIN project_votes pv ON p.id = pv.project_id AND pv.user_id = ?
+             ORDER BY p.created_at DESC
+             LIMIT ${limitNum} OFFSET ${offsetNum}`;
+            params = [userId];
+        }
+        
+        console.log('📊 Query:', query.substring(0, 100) + '...');
+        console.log('📊 Params:', params);
+        
+        const [projects] = await db.execute(query, params);
+        
+        console.log(`📊 Trovati ${projects.length} progetti`);
+        
+        // Parse tags per ogni progetto
+        const parsedProjects = projects.map(p => {
+            let parsedTags = [];
+            if (p.tags) {
+                try {
+                    parsedTags = JSON.parse(p.tags);
+                    if (!Array.isArray(parsedTags)) parsedTags = [];
+                } catch (e) {
+                    console.warn(`⚠️  Tag malformati per progetto ${p.id}:`, p.tags);
+                    parsedTags = [];
+                }
+            }
+            return {
+                ...p,
+                tags: parsedTags
+            };
+        });
+        
+        res.json({
+            success: true,
+            projects: parsedProjects,
+            total: parsedProjects.length
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching projects:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante il recupero dei progetti: ' + error.message
+        });
+    }
+});
+
+// GET /api/projects/my - Progetti dell'utente corrente
+app.get('/api/projects/my', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const [projects] = await db.execute(
+            `SELECT p.*, 
+                    u.name as author_name, u.avatar_url as author_avatar
+             FROM projects p
+             JOIN users u ON p.user_id = u.id
+             WHERE p.user_id = ?
+             ORDER BY p.created_at DESC`,
+            [userId]
+        );
+        
+        const parsedProjects = projects.map(p => ({
+            ...p,
+            tags: p.tags ? JSON.parse(p.tags) : []
+        }));
+        
+        res.json({
+            success: true,
+            projects: parsedProjects
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching user projects:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante il recupero dei tuoi progetti'
+        });
+    }
+});
+
+// POST /api/projects/:id/vote - Vota un progetto
+app.post('/api/projects/:id/vote', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const projectId = parseInt(req.params.id);
+        const { type } = req.body; // 'interested' o 'collaborate'
+        
+        if (!['interested', 'collaborate'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Tipo voto non valido (interested o collaborate)'
+            });
+        }
+        
+        // Verifica che il progetto esista
+        const [project] = await db.execute(
+            'SELECT * FROM projects WHERE id = ?',
+            [projectId]
+        );
+        
+        if (project.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Progetto non trovato'
+            });
+        }
+        
+        // Non permettere voti sul proprio progetto
+        if (project[0].user_id === userId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Non puoi votare il tuo stesso progetto'
+            });
+        }
+        
+        // Verifica se esiste già un voto
+        const [existingVote] = await db.execute(
+            'SELECT * FROM project_votes WHERE project_id = ? AND user_id = ?',
+            [projectId, userId]
+        );
+        
+        if (existingVote.length > 0) {
+            // Se il voto è dello stesso tipo, rimuovilo (toggle)
+            if (existingVote[0].type === type) {
+                await db.execute(
+                    'DELETE FROM project_votes WHERE id = ?',
+                    [existingVote[0].id]
+                );
+                
+                // Decrementa contatore
+                await db.execute(
+                    `UPDATE projects SET ${type}_count = ${type}_count - 1 WHERE id = ?`,
+                    [projectId]
+                );
+                
+                return res.json({
+                    success: true,
+                    message: 'Voto rimosso',
+                    action: 'removed'
+                });
+            } else {
+                // Cambia tipo di voto
+                await db.execute(
+                    'UPDATE project_votes SET type = ? WHERE id = ?',
+                    [type, existingVote[0].id]
+                );
+                
+                // Aggiorna contatori
+                const oldType = existingVote[0].type;
+                await db.execute(
+                    `UPDATE projects SET ${oldType}_count = ${oldType}_count - 1, ${type}_count = ${type}_count + 1 WHERE id = ?`,
+                    [projectId]
+                );
+                
+                return res.json({
+                    success: true,
+                    message: 'Voto aggiornato',
+                    action: 'changed'
+                });
+            }
+        }
+        
+        // Inserisci nuovo voto
+        await db.execute(
+            'INSERT INTO project_votes (project_id, user_id, type) VALUES (?, ?, ?)',
+            [projectId, userId, type]
+        );
+        
+        // Incrementa contatore
+        await db.execute(
+            `UPDATE projects SET ${type}_count = ${type}_count + 1 WHERE id = ?`,
+            [projectId]
+        );
+        
+        res.json({
+            success: true,
+            message: 'Voto registrato',
+            action: 'added'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error voting project:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante la votazione'
+        });
+    }
+});
+
+// DELETE /api/projects/:id - Elimina progetto (solo proprietario)
+app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const projectId = parseInt(req.params.id);
+        
+        // Verifica proprietà progetto
+        const [project] = await db.execute(
+            'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+            [projectId, userId]
+        );
+        
+        if (project.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Progetto non trovato o non sei il proprietario'
+            });
+        }
+        
+        // Elimina immagine se esiste
+        if (project[0].image_url && !project[0].image_url.includes('placeholder')) {
+            const imagePath = path.join(__dirname, '..', project[0].image_url);
+            if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+            }
+        }
+        
+        // Elimina progetto (cascade eliminerà anche i voti)
+        await db.execute('DELETE FROM projects WHERE id = ?', [projectId]);
+        
+        res.json({
+            success: true,
+            message: 'Progetto eliminato con successo'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error deleting project:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante l\'eliminazione del progetto'
+        });
+    }
+});
+
+// Servi file statici dalla cartella uploads
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// ============================================
 // Validate required environment variables
 function validateEnv() {
     const required = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
@@ -1359,8 +1870,17 @@ async function startServer() {
     initGoogleOAuth();
     
     app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        console.log(`API endpoints available at http://localhost:${PORT}/api/`);
+        console.log(`✅ Server running on port ${PORT}`);
+        console.log(`📍 API endpoints available at http://localhost:${PORT}/api/`);
+        console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
+        console.log(`💡 Spotlight test: http://localhost:${PORT}/api/projects/test`);
+        console.log('');
+        console.log('📋 Registered endpoints:');
+        console.log('  - POST /api/projects (create project)');
+        console.log('  - GET  /api/projects (list projects)');
+        console.log('  - GET  /api/projects/my (my projects)');
+        console.log('  - POST /api/projects/:id/vote (vote project)');
+        console.log('  - DELETE /api/projects/:id (delete project)');
     });
 }
 

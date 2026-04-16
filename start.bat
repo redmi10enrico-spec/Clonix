@@ -46,13 +46,14 @@ echo.
 echo Premi Ctrl+C per fermare TUTTO
 echo.
 
-REM Start both servers in parallel using start command
-start "Clonix Backend" cmd /c "node server.js"
+REM Start both servers in parallel using start command (con /k per mantenere finestre aperte)
+start "Clonix Backend" cmd /k "node server.js & echo. & echo Backend stopped. Premi un tasto per chiudere... & pause >nul"
 timeout /t 2 /nobreak >nul
-start "Clonix Frontend" cmd /c "node static-server.js"
+start "Clonix Frontend" cmd /k "node static-server.js & echo. & echo Frontend stopped. Premi un tasto per chiudere... & pause >nul"
 
 REM Keep this window open
 echo [INFO] Server avviati in finestre separate
+echo [INFO] Controlla le finestre "Clonix Backend" e "Clonix Frontend"
 echo [INFO] Chiudi questa finestra quando hai finito
 echo.
 pause

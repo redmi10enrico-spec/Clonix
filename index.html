@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="css/notifications.css">
     <link rel="stylesheet" href="css/chat-system.css">
     <link rel="stylesheet" href="css/personalization-safe.css">
+    <link rel="stylesheet" href="css/spotlight.css">
     <!-- Font: Plus Jakarta Sans per un look moderno -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
     <!-- Icone: Phosphor Icons -->
@@ -110,6 +111,9 @@
                 <a href="#" class="menu-item" id="requestsMenuItem" onclick="showSection('requestsSection'); loadAllNotifications(); return false;">
                     <i class="ph ph-bell"></i> Richieste
                     <span class="menu-badge" id="requestsMenuBadge" style="display: none;">0</span>
+                </a>
+                <a href="#" class="menu-item" id="spotlightMenuItem" onclick="showSection('spotlightSection'); loadSpotlightProjects(); return false;">
+                    <i class="ph ph-sparkle"></i> Spotlight
                 </a>
                 <a href="#" class="menu-item" onclick="showSection('chatSection'); return false;"><i class="ph ph-chat-circle"></i> Chat</a>
                 <a href="#" class="menu-item" onclick="showSection('groupsSection'); return false;"><i class="ph ph-users-three"></i> Gruppi</a>
@@ -660,6 +664,132 @@
                         <p class="empty-requests">Nessuna richiesta inviata</p>
                     </div>
                 </section>
+            </div>
+        </main>
+
+        <!-- SPOTLIGHT SECTION - Projects Showcase -->
+        <main class="main-content" id="spotlightSection" style="display: none;">
+            <header class="main-header">
+                <div class="header-content">
+                    <div>
+                        <h1><i class="ph ph-sparkle"></i> Spotlight</h1>
+                        <p>Scopri e sponsorizza i progetti della community.</p>
+                    </div>
+                    <div class="header-actions">
+                        <select id="spotlightSort" class="btn-secondary" onchange="loadSpotlightProjects()">
+                            <option value="recent">Più recenti</option>
+                            <option value="popular">Più votati</option>
+                        </select>
+                        <button class="btn-primary" onclick="openCreateProjectModal()">
+                            <i class="ph ph-plus"></i> Nuovo Progetto
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- I miei progetti (se ce ne sono) -->
+            <section class="section" id="myProjectsSection" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="ph ph-user"></i> I Miei Progetti</h2>
+                    <span class="project-limit-badge" id="projectLimitBadge">0/3</span>
+                </div>
+                <div class="spotlight-grid" id="myProjectsGrid">
+                    <!-- Progetti utente caricati dinamicamente -->
+                </div>
+            </section>
+
+            <!-- Tutti i progetti -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="ph ph-compass"></i> Progetti della Community</h2>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="spotlightLoading" class="loading-container" style="display: flex;">
+                    <div class="loading-spinner"></div>
+                    <p>Caricamento progetti...</p>
+                </div>
+                
+                <!-- Empty State -->
+                <div id="spotlightEmpty" class="empty-state" style="display: none;">
+                    <div class="empty-icon">🚀</div>
+                    <h3>Nessun progetto ancora</h3>
+                    <p>Sii il primo a condividere il tuo progetto con la community!</p>
+                    <button class="btn-primary" onclick="openCreateProjectModal()" style="margin-top: 20px;">
+                        <i class="ph ph-plus"></i> Crea Progetto
+                    </button>
+                </div>
+                
+                <!-- Projects Grid -->
+                <div class="spotlight-grid" id="spotlightGrid" style="display: none;">
+                    <!-- Progetti caricati dinamicamente -->
+                </div>
+            </section>
+
+            <!-- Modal Creazione Progetto -->
+            <div id="createProjectModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2><i class="ph ph-plus-circle"></i> Crea Nuovo Progetto</h2>
+                        <button class="btn-icon" onclick="closeCreateProjectModal()">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="createProjectForm" onsubmit="submitProject(event)">
+                            <div class="form-group">
+                                <label for="projectTitle">Titolo *</label>
+                                <input type="text" id="projectTitle" maxlength="100" required 
+                                    placeholder="Es: App di gestione task">
+                                <span class="char-count" id="titleCharCount">0/100</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="projectDescription">Descrizione breve * (max 120 caratteri)</label>
+                                <textarea id="projectDescription" maxlength="120" required rows="3"
+                                    placeholder="Descrivi il tuo progetto in poche parole..."></textarea>
+                                <span class="char-count" id="descCharCount">0/120</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="projectLink">Link (opzionale)</label>
+                                <input type="url" id="projectLink" 
+                                    placeholder="https://github.com/username/progetto">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Tags (opzionale, max 5)</label>
+                                <div class="tags-input-container" id="tagsContainer">
+                                    <input type="text" id="tagInput" placeholder="Aggiungi tag e premi Enter" maxlength="20">
+                                </div>
+                                <div class="tags-list" id="tagsList"></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="projectImage">Immagine</label>
+                                <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('projectImage').click()">
+                                    <input type="file" id="projectImage" accept="image/*" style="display: none;" onchange="handleImagePreview(event)">
+                                    <div class="upload-placeholder" id="uploadPlaceholder">
+                                        <i class="ph ph-image"></i>
+                                        <p>Trascina un'immagine qui o clicca per selezionare</p>
+                                        <span>Max 10MB - JPEG, PNG, WEBP</span>
+                                    </div>
+                                    <img id="imagePreview" style="display: none; max-width: 100%; border-radius: 12px;">
+                                </div>
+                                <button type="button" class="btn-text" id="removeImageBtn" style="display: none; margin-top: 10px;" onclick="removeImage()">
+                                    <i class="ph ph-trash"></i> Rimuovi immagine
+                                </button>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" onclick="closeCreateProjectModal()">Annulla</button>
+                                <button type="submit" class="btn-primary" id="submitProjectBtn">
+                                    <i class="ph ph-paper-plane-right"></i> Pubblica Progetto
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -2636,6 +2766,610 @@ document.addEventListener('DOMContentLoaded', function() {
         startNotificationPolling();
         loadConnections();
     }, 1500);
+});
+</script>
+
+<!-- ============================================
+     🎯 SPOTLIGHT - PROJECTS SHOWCASE SYSTEM
+     ============================================ -->
+<script>
+// Stato globale
+let spotlightProjects = [];
+let myProjects = [];
+let currentProjectTags = [];
+let selectedImageFile = null;
+
+// API Base URL
+const API_BASE = 'http://localhost:3001/api';
+
+// Test connessione al server all'avvio
+async function testServerConnection() {
+    try {
+        const response = await fetch('http://localhost:3001/api/projects/test', { 
+            method: 'GET',
+            cache: 'no-cache'
+        });
+        if (response.ok) {
+            console.log('✅ Server backend raggiungibile');
+        }
+    } catch (err) {
+        console.warn('⚠️  Server backend non raggiungibile su localhost:3001. Avvia con: node scripts/server.js');
+    }
+}
+
+// Test connessione dopo 2 secondi
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(testServerConnection, 2000);
+});
+
+// ============================================
+// CARICAMENTO PROGETTI
+// ============================================
+
+async function loadSpotlightProjects() {
+    const sort = document.getElementById('spotlightSort')?.value || 'recent';
+    const loadingEl = document.getElementById('spotlightLoading');
+    const emptyEl = document.getElementById('spotlightEmpty');
+    const gridEl = document.getElementById('spotlightGrid');
+    
+    // Mostra loading
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (gridEl) gridEl.style.display = 'none';
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        // Carica tutti i progetti
+        const response = await fetch(`${API_BASE}/projects?sort=${sort}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Errore caricamento progetti');
+        
+        const data = await response.json();
+        spotlightProjects = data.projects || [];
+        
+        // Carica i miei progetti
+        await loadMyProjects();
+        
+        // Render
+        renderSpotlightProjects();
+        
+    } catch (error) {
+        console.error('❌ Errore Spotlight:', error);
+        if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+            showToast('❌ Server non raggiungibile. Avvia il backend: node scripts/server.js', 'error');
+        } else {
+            showToast('Errore caricamento progetti: ' + error.message, 'error');
+        }
+    } finally {
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+async function loadMyProjects() {
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_BASE}/projects/my`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Errore caricamento miei progetti');
+        
+        const data = await response.json();
+        myProjects = data.projects || [];
+        
+        renderMyProjects();
+        
+    } catch (error) {
+        console.error('❌ Errore caricamento miei progetti:', error);
+    }
+}
+
+// ============================================
+// RENDERING
+// ============================================
+
+function renderSpotlightProjects() {
+    const gridEl = document.getElementById('spotlightGrid');
+    const emptyEl = document.getElementById('spotlightEmpty');
+    
+    if (!gridEl) return;
+    
+    if (spotlightProjects.length === 0) {
+        gridEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'block';
+        return;
+    }
+    
+    if (emptyEl) emptyEl.style.display = 'none';
+    gridEl.style.display = 'grid';
+    
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    
+    gridEl.innerHTML = spotlightProjects.map(project => {
+        // Mostra pulsante delete anche in community se è il progetto dell'utente
+        const isOwner = project.user_id === currentUser.id;
+        return createProjectCard(project, currentUser.id, isOwner);
+    }).join('');
+}
+
+function renderMyProjects() {
+    const sectionEl = document.getElementById('myProjectsSection');
+    const gridEl = document.getElementById('myProjectsGrid');
+    const badgeEl = document.getElementById('projectLimitBadge');
+    
+    if (!sectionEl || !gridEl) return;
+    
+    // Aggiorna badge
+    if (badgeEl) {
+        badgeEl.textContent = `${myProjects.length}/3`;
+    }
+    
+    if (myProjects.length === 0) {
+        sectionEl.style.display = 'none';
+        return;
+    }
+    
+    sectionEl.style.display = 'block';
+    
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    gridEl.innerHTML = myProjects.map(project => createProjectCard(project, currentUser.id, true)).join('');
+}
+
+function createProjectCard(project, currentUserId, isOwner = false) {
+    const tagsHtml = (project.tags || []).map(tag => 
+        `<span class="project-tag">${escapeHtml(tag)}</span>`
+    ).join('');
+    
+    const isVotedInterested = project.user_vote === 'interested';
+    const isVotedCollaborate = project.user_vote === 'collaborate';
+    
+    const deleteBtn = isOwner ? `
+        <button class="project-delete-btn" onclick="deleteProject(${project.id}, event)" title="Elimina progetto">
+            <i class="ph ph-trash"></i>
+        </button>
+    ` : '';
+    
+    const linkOverlay = project.link ? `
+        <a href="${escapeHtml(project.link)}" target="_blank" class="project-link-overlay" title="Visita link">
+            <i class="ph ph-arrow-square-out"></i>
+        </a>
+    ` : '';
+    
+    return `
+        <div class="project-card" data-project-id="${project.id}">
+            <div class="project-image-container">
+                <img src="${project.image_url || '/assets/project-placeholder.svg'}" 
+                     alt="${escapeHtml(project.title)}" 
+                     class="project-image"
+                     onerror="this.src='/assets/project-placeholder.svg'">
+                ${deleteBtn}
+                ${linkOverlay}
+            </div>
+            <div class="project-content">
+                <h3 class="project-title">${escapeHtml(project.title)}</h3>
+                <p class="project-description">${escapeHtml(project.description)}</p>
+                
+                <div class="project-author">
+                    <img src="${project.author_avatar || '/assets/default-avatar.svg'}" 
+                         alt="${escapeHtml(project.author_name)}" 
+                         class="author-avatar"
+                         onerror="this.src='/assets/default-avatar.svg'">
+                    <span class="author-name">${escapeHtml(project.author_name)}</span>
+                </div>
+                
+                ${tagsHtml ? `<div class="project-tags">${tagsHtml}</div>` : ''}
+                
+                <div class="project-actions">
+                    <button class="vote-btn ${isVotedInterested ? 'voted' : ''}" 
+                            onclick="voteProject(${project.id}, 'interested', this)"
+                            ${isOwner ? 'disabled' : ''}>
+                        <i class="ph ph-rocket-launch"></i>
+                        <span>${project.interested_count || 0}</span>
+                    </button>
+                    <button class="vote-btn ${isVotedCollaborate ? 'voted' : ''}" 
+                            onclick="voteProject(${project.id}, 'collaborate', this)"
+                            ${isOwner ? 'disabled' : ''}>
+                        <i class="ph ph-handshake"></i>
+                        <span>${project.collaborate_count || 0}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================
+// VOTAZIONI
+// ============================================
+
+async function voteProject(projectId, type, btnElement) {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const project = spotlightProjects.find(p => p.id === projectId);
+    
+    if (!project) return;
+    
+    // Non permettere voti sul proprio progetto
+    if (project.user_id === currentUser.id) {
+        showToast('Non puoi votare il tuo stesso progetto', 'warning');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_BASE}/projects/${projectId}/vote`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore votazione');
+        }
+        
+        const data = await response.json();
+        
+        // Aggiorna UI
+        await loadSpotlightProjects();
+        
+        // Feedback
+        if (data.action === 'added') {
+            showToast(type === 'interested' ? '🚀 Sei interessato!' : '🤝 Vuoi collaborare!', 'success');
+        } else if (data.action === 'removed') {
+            showToast('Voto rimosso', 'info');
+        } else {
+            showToast('Voto aggiornato', 'success');
+        }
+        
+    } catch (error) {
+        console.error('❌ Errore votazione:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// CREAZIONE PROGETTO
+// ============================================
+
+function openCreateProjectModal() {
+    // Verifica limite progetti
+    if (myProjects.length >= 3) {
+        showToast('Hai raggiunto il limite massimo di 3 progetti. Elimina un progetto esistente per crearne uno nuovo.', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById('createProjectModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Reset form
+        resetProjectForm();
+    }
+}
+
+function closeCreateProjectModal() {
+    const modal = document.getElementById('createProjectModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function resetProjectForm() {
+    document.getElementById('createProjectForm')?.reset();
+    currentProjectTags = [];
+    selectedImageFile = null;
+    renderTags();
+    removeImage();
+    updateCharCounts();
+}
+
+async function submitProject(event) {
+    event.preventDefault();
+    
+    const title = document.getElementById('projectTitle').value.trim();
+    const description = document.getElementById('projectDescription').value.trim();
+    const link = document.getElementById('projectLink').value.trim();
+    const imageInput = document.getElementById('projectImage');
+    
+    if (!title || !description) {
+        showToast('Titolo e descrizione sono obbligatori', 'error');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submitProjectBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="ph ph-spinner"></i> Pubblicazione...';
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        // Crea FormData per upload immagine
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description);
+        if (link) formData.append('link', link);
+        formData.append('tags', JSON.stringify(currentProjectTags));
+        
+        if (imageInput.files[0]) {
+            formData.append('image', imageInput.files[0]);
+        }
+        
+        const response = await fetch(`${API_BASE}/projects`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore creazione progetto');
+        }
+        
+        const data = await response.json();
+        
+        showToast('🎉 Progetto pubblicato con successo!', 'success');
+        closeCreateProjectModal();
+        
+        // Aggiungi immediatamente il progetto alla lista locale per feedback immediato
+        if (data.project) {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const newProject = {
+                ...data.project,
+                author_name: currentUser.name,
+                author_avatar: currentUser.avatar_url,
+                user_vote: null
+            };
+            
+            // Aggiungi ai miei progetti
+            myProjects.unshift(newProject);
+            renderMyProjects();
+            
+            // Aggiungi alla lista community
+            spotlightProjects.unshift(newProject);
+            renderSpotlightProjects();
+        }
+        
+        // Ricarica progetti dal server per sincronizzazione
+        await loadSpotlightProjects();
+        
+    } catch (error) {
+        console.error('❌ Errore creazione progetto:', error);
+        if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+            showToast('❌ Server non raggiungibile. Assicurati di aver avviato il backend: node scripts/server.js', 'error');
+        } else {
+            showToast(error.message, 'error');
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="ph ph-paper-plane-right"></i> Pubblica Progetto';
+        }
+    }
+}
+
+// ============================================
+// GESTIONE TAGS
+// ============================================
+
+function initTagsInput() {
+    const tagInput = document.getElementById('tagInput');
+    if (!tagInput) return;
+    
+    tagInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const tag = this.value.trim().toLowerCase();
+            
+            if (tag && currentProjectTags.length < 5 && !currentProjectTags.includes(tag)) {
+                currentProjectTags.push(tag);
+                this.value = '';
+                renderTags();
+            } else if (currentProjectTags.length >= 5) {
+                showToast('Massimo 5 tag', 'warning');
+            }
+        }
+    });
+}
+
+function renderTags() {
+    const container = document.getElementById('tagsList');
+    if (!container) return;
+    
+    container.innerHTML = currentProjectTags.map((tag, index) => `
+        <span class="tag-item">
+            ${escapeHtml(tag)}
+            <button type="button" onclick="removeTag(${index})">
+                <i class="ph ph-x"></i>
+            </button>
+        </span>
+    `).join('');
+}
+
+function removeTag(index) {
+    currentProjectTags.splice(index, 1);
+    renderTags();
+}
+
+// ============================================
+// GESTIONE IMMAGINE
+// ============================================
+
+function handleImagePreview(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validazione
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('Immagine troppo grande (max 10MB)', 'error');
+        return;
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('Formato non supportato (usa JPEG, PNG, WEBP, GIF)', 'error');
+        return;
+    }
+    
+    selectedImageFile = file;
+    
+    // Preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('imagePreview');
+        const placeholder = document.getElementById('uploadPlaceholder');
+        const removeBtn = document.getElementById('removeImageBtn');
+        const uploadArea = document.getElementById('imageUploadArea');
+        
+        if (preview) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
+        if (uploadArea) uploadArea.classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeImage() {
+    const input = document.getElementById('projectImage');
+    const preview = document.getElementById('imagePreview');
+    const placeholder = document.getElementById('uploadPlaceholder');
+    const removeBtn = document.getElementById('removeImageBtn');
+    const uploadArea = document.getElementById('imageUploadArea');
+    
+    if (input) input.value = '';
+    if (preview) {
+        preview.src = '';
+        preview.style.display = 'none';
+    }
+    if (placeholder) placeholder.style.display = 'block';
+    if (removeBtn) removeBtn.style.display = 'none';
+    if (uploadArea) uploadArea.classList.remove('has-image');
+    
+    selectedImageFile = null;
+}
+
+// ============================================
+// ELIMINAZIONE PROGETTO
+// ============================================
+
+async function deleteProject(projectId, event) {
+    event.stopPropagation();
+    
+    if (!confirm('Sei sicuro di voler eliminare questo progetto?')) return;
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore eliminazione');
+        }
+        
+        showToast('Progetto eliminato', 'success');
+        await loadSpotlightProjects();
+        
+    } catch (error) {
+        console.error('❌ Errore eliminazione:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// CHARACTER COUNTERS
+// ============================================
+
+function initCharCounters() {
+    const titleInput = document.getElementById('projectTitle');
+    const descInput = document.getElementById('projectDescription');
+    
+    if (titleInput) {
+        titleInput.addEventListener('input', updateCharCounts);
+    }
+    if (descInput) {
+        descInput.addEventListener('input', updateCharCounts);
+    }
+}
+
+function updateCharCounts() {
+    const title = document.getElementById('projectTitle')?.value.length || 0;
+    const desc = document.getElementById('projectDescription')?.value.length || 0;
+    
+    const titleCount = document.getElementById('titleCharCount');
+    const descCount = document.getElementById('descCharCount');
+    
+    if (titleCount) titleCount.textContent = `${title}/100`;
+    if (descCount) descCount.textContent = `${desc}/120`;
+}
+
+// ============================================
+// TOAST NOTIFICATIONS
+// ============================================
+
+function showToast(message, type = 'info') {
+    // Usa il sistema toast esistente se disponibile
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, type);
+        return;
+    }
+    
+    // Fallback semplice
+    const container = document.getElementById('toastContainer') || document.body;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 12px;
+        background: ${type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        font-weight: 600;
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ============================================
+// INIZIALIZZAZIONE
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    initTagsInput();
+    initCharCounters();
+    
 });
 </script>
 
