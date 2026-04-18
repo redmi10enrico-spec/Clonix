@@ -13,9 +13,21 @@ const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
+
+// Create HTTP server for Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: ['http://localhost:8081', 'http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:5500', 'http://localhost:5500'],
+        credentials: true,
+        methods: ['GET', 'POST']
+    }
+});
 
 // Middleware
 app.use(helmet());
@@ -653,6 +665,37 @@ function matchScore(userA, userB) {
 }
 
 /**
+ * Parse skills in modo sicuro - supporta JSON array o CSV string
+ * @param {string} skillsString - Skills dal database
+ * @returns {Array} - Array di skills
+ */
+function parseSkills(skillsString) {
+    if (!skillsString || skillsString === '[]' || skillsString === '') {
+        return [];
+    }
+    
+    // Se è già un array (non dovrebbe succedere ma per sicurezza)
+    if (Array.isArray(skillsString)) {
+        return skillsString;
+    }
+    
+    // Prova a fare parse come JSON
+    try {
+        const parsed = JSON.parse(skillsString);
+        if (Array.isArray(parsed)) {
+            return parsed;
+        }
+        return [parsed.toString()];
+    } catch (e) {
+        // Non è JSON, tratta come CSV o stringa semplice
+        if (skillsString.includes(',')) {
+            return skillsString.split(',').map(s => s.trim()).filter(s => s);
+        }
+        return [skillsString.trim()];
+    }
+}
+
+/**
  * Trova i migliori match per un utente dal database
  * @param {number} currentUserId - ID dell'utente corrente
  * @param {number} limit - Numero massimo di risultati (default: 10)
@@ -660,6 +703,9 @@ function matchScore(userA, userB) {
  */
 async function getMatches(currentUserId, limit = 10) {
     try {
+        // Assicuriamoci che l'ID sia un numero
+        currentUserId = parseInt(currentUserId);
+        
         // 1. Recupera l'utente corrente
         const [currentUserRows] = await db.execute(
             'SELECT id, name, email, skills FROM users WHERE id = ?',
@@ -671,9 +717,11 @@ async function getMatches(currentUserId, limit = 10) {
         }
         
         const currentUser = currentUserRows[0];
+        // Parse skills dell'utente corrente
+        currentUser.skills = parseSkills(currentUser.skills);
         
         // Se l'utente non ha skills, ritorna array vuoto
-        if (!currentUser.skills || currentUser.skills === '[]') {
+        if (!currentUser.skills || currentUser.skills.length === 0) {
             return {
                 user: currentUser,
                 matches: [],
@@ -681,14 +729,16 @@ async function getMatches(currentUserId, limit = 10) {
             };
         }
         
-        // 2. Recupera tutti gli altri utenti (con skills non vuote)
+        // 2. Recupera tutti gli altri utenti (con skills non vuote) - ESCLUDI l'utente corrente
         const [otherUsersRows] = await db.execute(
             'SELECT id, name, email, skills, created_at FROM users WHERE id != ? AND skills IS NOT NULL AND JSON_LENGTH(skills) > 0',
             [currentUserId]
         );
+        console.log(`🔍 getMatches: Trovati ${otherUsersRows.length} altri utenti (escluso id=${currentUserId})`);
         
-        // 3. Calcola match score per ogni utente
+        // 3. Parse skills degli altri utenti e calcola match score
         const matches = otherUsersRows.map(otherUser => {
+            otherUser.skills = parseSkills(otherUser.skills);
             const matchResult = matchScore(currentUser, otherUser);
             
             return {
@@ -721,9 +771,7 @@ async function getMatches(currentUserId, limit = 10) {
             user: {
                 id: currentUser.id,
                 name: currentUser.name,
-                skills: Array.isArray(currentUser.skills) 
-                    ? currentUser.skills 
-                    : JSON.parse(currentUser.skills || '[]')
+                skills: currentUser.skills || []
             },
             totalMatches: otherUsersRows.length,
             filteredMatches: filteredMatches.length,
@@ -924,6 +972,117 @@ app.get('/api/users/:userId/skills', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/users/:userId
+ * Recupera il profilo completo dell'utente
+ */
+app.get('/api/users/:userId', authenticateToken, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        
+        // Verifica permessi
+        if (req.user.id !== userId && req.user.email !== 'admin@clonix.com') {
+            return res.status(403).json({
+                success: false,
+                error: 'Accesso negato'
+            });
+        }
+        
+        const [rows] = await db.execute(
+            'SELECT id, name, email, skills, created_at FROM users WHERE id = ?',
+            [userId]
+        );
+        
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Utente non trovato'
+            });
+        }
+        
+        const user = rows[0];
+        
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                skills: parseSkills(user.skills),
+                created_at: user.created_at
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching user profile:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/users/:userId/profile
+ * Aggiorna il profilo utente (nome, email)
+ */
+app.put('/api/users/:userId/profile', authenticateToken, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const { name, email } = req.body;
+        
+        // Verifica permessi
+        if (req.user.id !== userId && req.user.email !== 'admin@clonix.com') {
+            return res.status(403).json({
+                success: false,
+                error: 'Accesso negato: puoi modificare solo il tuo profilo'
+            });
+        }
+        
+        // Aggiorna solo i campi forniti
+        const updates = [];
+        const params = [];
+        
+        if (name && name.trim()) {
+            updates.push('name = ?');
+            params.push(name.trim());
+        }
+        
+        if (email && email.trim()) {
+            updates.push('email = ?');
+            params.push(email.trim());
+        }
+        
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nessun dato da aggiornare'
+            });
+        }
+        
+        params.push(userId);
+        
+        await db.execute(
+            `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+            params
+        );
+        
+        console.log(`✅ Profilo aggiornato per utente ${userId}`);
+        
+        res.json({
+            success: true,
+            message: 'Profilo aggiornato con successo'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error updating profile:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // ============================================
 // 🔔 SISTEMA NOTIFICHE E CHAT
 // ============================================
@@ -935,7 +1094,7 @@ async function createNotificationsTable() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             sender_id INT NOT NULL,
             receiver_id INT NOT NULL,
-            type ENUM('match_request', 'match_accepted', 'match_rejected', 'message') DEFAULT 'match_request',
+            type ENUM('match_request', 'match_accepted', 'match_rejected', 'message', 'spotlight_vote') DEFAULT 'match_request',
             status ENUM('pending', 'accepted', 'rejected', 'read') DEFAULT 'pending',
             message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1070,12 +1229,12 @@ async function createProjectVotesTable() {
 // 🔵 POST /api/match/request - Invia richiesta match
 app.post('/api/match/request', authenticateToken, async (req, res) => {
     try {
-        const senderId = req.user.id;
+        const senderId = parseInt(req.user.id);
         const { receiverId } = req.body;
         
         console.log(`🔔 POST /api/match/request - senderId: ${senderId}, receiverId: ${receiverId}`);
         
-        if (!receiverId || receiverId === senderId) {
+        if (!receiverId || parseInt(receiverId) === senderId) {
             console.log('❌ ID destinatario non valido');
             return res.status(400).json({
                 success: false,
@@ -1083,48 +1242,105 @@ app.post('/api/match/request', authenticateToken, async (req, res) => {
             });
         }
         
-        // Verifica che non esista già una richiesta pendente
-        const [existing] = await db.execute(
+        const targetId = parseInt(receiverId);
+        
+        // 1. Verifica che esista l'utente destinazione
+        const [targetUser] = await db.execute(
+            'SELECT id FROM users WHERE id = ? AND is_active = TRUE',
+            [targetId]
+        );
+        
+        if (targetUser.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Utente non trovato'
+            });
+        }
+        
+        // 2. Verifica che non esista già una connessione attiva
+        const minId = Math.min(senderId, targetId);
+        const maxId = Math.max(senderId, targetId);
+        
+        const [existingConnection] = await db.execute(
+            'SELECT id FROM connections WHERE user1_id = ? AND user2_id = ? AND status = ?',
+            [minId, maxId, 'active']
+        );
+        
+        if (existingConnection.length > 0) {
+            console.log('❌ Connessione già esistente');
+            return res.status(409).json({
+                success: false,
+                error: 'Sei già connesso con questo utente',
+                code: 'ALREADY_CONNECTED'
+            });
+        }
+        
+        // 3. Verifica richiesta già inviata da sender a receiver (pendente)
+        const [existingSent] = await db.execute(
+            `SELECT id, status FROM notifications 
+             WHERE sender_id = ? AND receiver_id = ? AND type = 'match_request' AND status = 'pending'`,
+            [senderId, targetId]
+        );
+        
+        if (existingSent.length > 0) {
+            console.log('❌ Richiesta già inviata da te, in attesa di risposta');
+            return res.status(409).json({
+                success: false,
+                error: 'Hai già inviato una richiesta a questo utente',
+                code: 'REQUEST_ALREADY_SENT'
+            });
+        }
+        
+        // 4. Verifica se c'è una richiesta pendente DAL receiver A TE (bidirezionale)
+        const [existingReceived] = await db.execute(
             `SELECT id FROM notifications 
              WHERE sender_id = ? AND receiver_id = ? AND type = 'match_request' AND status = 'pending'`,
-            [senderId, receiverId]
+            [targetId, senderId]
         );
         
-        if (existing.length > 0) {
-            console.log('❌ Richiesta già esistente');
-            return res.status(409).json({
-                success: false,
-                error: 'Richiesta già inviata, in attesa di risposta'
+        if (existingReceived.length > 0) {
+            console.log('✅ Richiesta reciproca trovata - creo connessione automatica');
+            // Auto-accetta: crea connessione e aggiorna entrambe le notifiche
+            
+            await db.execute(
+                'INSERT INTO connections (user1_id, user2_id, status) VALUES (?, ?, ?)',
+                [minId, maxId, 'active']
+            );
+            
+            // Marca la richiesta dell'altro come accettata
+            await db.execute(
+                `UPDATE notifications SET status = 'accepted' WHERE id = ?`,
+                [existingReceived[0].id]
+            );
+            
+            // Crea notifica per il sender originale
+            await db.execute(
+                `INSERT INTO notifications (sender_id, receiver_id, type, status, message) 
+                 VALUES (?, ?, 'match_accepted', 'accepted', ?)`,
+                [senderId, targetId, 'Hanno accettato la tua richiesta!']
+            );
+            
+            return res.json({
+                success: true,
+                message: 'Match reciproco! Connessione creata automaticamente',
+                autoConnected: true
             });
         }
         
-        // Verifica che non esista già una connessione
-        const [connection] = await db.execute(
-            `SELECT id FROM connections 
-             WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)`,
-            [senderId, receiverId, receiverId, senderId]
-        );
-        
-        if (connection.length > 0) {
-            console.log('❌ Match già esistente');
-            return res.status(409).json({
-                success: false,
-                error: 'Match già esistente'
-            });
-        }
-        
-        // Crea notifica
+        // 5. Crea nuova richiesta
         const [result] = await db.execute(
-            `INSERT INTO notifications (sender_id, receiver_id, type, status) VALUES (?, ?, 'match_request', 'pending')`,
-            [senderId, receiverId]
+            `INSERT INTO notifications (sender_id, receiver_id, type, status, message) 
+             VALUES (?, ?, 'match_request', 'pending', ?)`,
+            [senderId, targetId, 'Vuole connettersi con te!']
         );
         
-        console.log(`✅ Match request CREATA: ID=${result.insertId}, ${senderId} → ${receiverId}`);
+        console.log(`✅ Match request CREATA: ID=${result.insertId}, ${senderId} → ${targetId}`);
         
         res.json({
             success: true,
             message: 'Richiesta inviata',
-            notificationId: result.insertId
+            notificationId: result.insertId,
+            code: 'REQUEST_SENT'
         });
         
     } catch (error) {
@@ -1137,28 +1353,47 @@ app.post('/api/match/request', authenticateToken, async (req, res) => {
 app.get('/api/notifications', authenticateToken, async (req, res) => {
     try {
         const userId = parseInt(req.user.id);
-        const status = req.query.status || 'pending';
-        const limit = parseInt(req.query.limit) || 20;
+        const status = req.query.status;
+        const limitNum = parseInt(req.query.limit) || 20;
         
-        console.log(`🔔 GET /api/notifications - userId: ${userId}, status: ${status}, limit: ${limit}`);
+        console.log(`🔔 GET /api/notifications - userId: ${userId}, status: ${status || 'ALL'}, limit: ${limitNum}`);
         
-        const [notifications] = await db.execute(
-            `SELECT n.*, 
-                    u.name as sender_name, u.email as sender_email
-             FROM notifications n
-             JOIN users u ON n.sender_id = u.id
-             WHERE n.receiver_id = ? AND n.status = ?
-             ORDER BY n.created_at DESC
-             LIMIT ?`,
-            [parseInt(userId), String(status), parseInt(limit)]
-        );
+        // Se status è specificato, filtra per stato, altrimenti carica tutte
+        let query;
+        let params;
+        
+        if (status) {
+            query = `
+                SELECT n.*, 
+                        u.name as sender_name, u.email as sender_email
+                 FROM notifications n
+                 JOIN users u ON n.sender_id = u.id
+                 WHERE n.receiver_id = ? AND n.status = ?
+                 ORDER BY n.created_at DESC
+                 LIMIT ${limitNum}
+            `;
+            params = [userId, status];
+        } else {
+            query = `
+                SELECT n.*, 
+                        u.name as sender_name, u.email as sender_email
+                 FROM notifications n
+                 JOIN users u ON n.sender_id = u.id
+                 WHERE n.receiver_id = ?
+                 ORDER BY n.created_at DESC
+                 LIMIT ${limitNum}
+            `;
+            params = [userId];
+        }
+        
+        const [notifications] = await db.execute(query, params);
         
         console.log(`🔔 Trovate ${notifications.length} notifiche per userId=${userId}`);
         
         // Conta notifiche non lette
         const [count] = await db.execute(
             `SELECT COUNT(*) as unread FROM notifications WHERE receiver_id = ? AND status = 'pending'`,
-            [parseInt(userId)]
+            [userId]
         );
         
         res.json({
@@ -1207,8 +1442,10 @@ app.get('/api/notifications/sent', authenticateToken, async (req, res) => {
 // 🔵 POST /api/match/respond - Rispondi a richiesta match
 app.post('/api/match/respond', authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { notificationId, response } = req.body; // response: 'accepted' | 'rejected'
+        const userId = parseInt(req.user.id);
+        const { notificationId, response } = req.body;
+        
+        console.log(`🔔 POST /api/match/respond - userId: ${userId}, notificationId: ${notificationId}, response: ${response}`);
         
         if (!['accepted', 'rejected'].includes(response)) {
             return res.status(400).json({
@@ -1217,7 +1454,14 @@ app.post('/api/match/respond', authenticateToken, async (req, res) => {
             });
         }
         
-        // Verifica che la notifica esista e sia destinata all'utente
+        if (!notificationId) {
+            return res.status(400).json({
+                success: false,
+                error: 'notificationId richiesto'
+            });
+        }
+        
+        // Verifica che la notifica esista, sia destinata all'utente e sia pendente
         const [notification] = await db.execute(
             `SELECT * FROM notifications WHERE id = ? AND receiver_id = ? AND type = 'match_request'`,
             [notificationId, userId]
@@ -1226,42 +1470,71 @@ app.post('/api/match/respond', authenticateToken, async (req, res) => {
         if (notification.length === 0) {
             return res.status(404).json({
                 success: false,
-                error: 'Notifica non trovata'
+                error: 'Richiesta non trovata o non autorizzato'
             });
         }
         
-        const senderId = notification[0].sender_id;
+        const requestData = notification[0];
+        
+        // Verifica che non sia già stata gestita
+        if (requestData.status !== 'pending') {
+            return res.status(409).json({
+                success: false,
+                error: `Richiesta già ${requestData.status === 'accepted' ? 'accettata' : 'rifiutata'}`,
+                code: 'ALREADY_RESPONDED',
+                currentStatus: requestData.status
+            });
+        }
+        
+        const senderId = requestData.sender_id;
+        const minId = Math.min(senderId, userId);
+        const maxId = Math.max(senderId, userId);
         
         // Aggiorna status notifica
         await db.execute(
-            `UPDATE notifications SET status = ? WHERE id = ?`,
+            `UPDATE notifications SET status = ?, updated_at = NOW() WHERE id = ?`,
             [response, notificationId]
         );
         
-        // Se accettata, crea connessione
         if (response === 'accepted') {
-            await db.execute(
-                `INSERT INTO connections (user1_id, user2_id, status) VALUES (?, ?, 'active')`,
-                [Math.min(senderId, userId), Math.max(senderId, userId)]
+            // Verifica che non esista già una connessione (race condition)
+            const [existingConn] = await db.execute(
+                'SELECT id FROM connections WHERE user1_id = ? AND user2_id = ?',
+                [minId, maxId]
             );
             
-            // Crea notifica per il sender
+            if (existingConn.length === 0) {
+                // Crea connessione
+                await db.execute(
+                    'INSERT INTO connections (user1_id, user2_id, status) VALUES (?, ?, ?)',
+                    [minId, maxId, 'active']
+                );
+                console.log(`✅ Connessione creata: ${minId} ↔ ${maxId}`);
+            }
+            
+            // Notifica il sender
             await db.execute(
-                `INSERT INTO notifications (sender_id, receiver_id, type, status, message) 
-                 VALUES (?, ?, 'match_accepted', 'read', 'Il tuo match è stato accettato!')`,
-                [userId, senderId]
+                `INSERT INTO notifications (sender_id, receiver_id, type, status, message, created_at) 
+                 VALUES (?, ?, 'match_accepted', 'read', ?, NOW())`,
+                [userId, senderId, 'Ha accettato la tua richiesta di connessione!']
             );
             
-            console.log(`✅ Match creato: ${senderId} ↔ ${userId}`);
+            res.json({
+                success: true,
+                message: 'Match accettato! Ora siete connessi',
+                connected: true,
+                connectionId: existingConn[0]?.id || null
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'Richiesta rifiutata',
+                connected: false
+            });
         }
         
-        res.json({
-            success: true,
-            message: response === 'accepted' ? 'Match accettato!' : 'Richiesta rifiutata'
-        });
-        
     } catch (error) {
-        console.error('❌ Error responding to match:', error);
+        console.error('❌ Error responding to match request:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -1273,17 +1546,20 @@ app.get('/api/connections', authenticateToken, async (req, res) => {
         
         const [connections] = await db.execute(
             `SELECT c.*, 
-                    u.id as other_user_id, u.name, u.email, u.skills
+                    u.id as other_user_id, u.name, u.email, u.skills,
+                    (SELECT COUNT(*) FROM messages WHERE sender_id = u.id AND receiver_id = ? AND is_read = 0) as unread_count
              FROM connections c
              JOIN users u ON (u.id = c.user1_id OR u.id = c.user2_id) AND u.id != ?
              WHERE (c.user1_id = ? OR c.user2_id = ?) AND c.status = 'active'`,
-            [userId, userId, userId]
+            [userId, userId, userId, userId]
         );
         
-        // Parse skills per ogni connessione
+        // Parse skills e aggiungi isOnline per ogni connessione
         const parsedConnections = connections.map(conn => ({
             ...conn,
-            skills: conn.skills ? JSON.parse(conn.skills) : []
+            user_id: conn.other_user_id,
+            isOnline: connectedUsers.has(conn.other_user_id),
+            skills: parseSkills(conn.skills)
         }));
         
         res.json({
@@ -1293,6 +1569,28 @@ app.get('/api/connections', authenticateToken, async (req, res) => {
         
     } catch (error) {
         console.error('❌ Error fetching connections:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 🔵 GET /api/connections/count - Ottieni solo il numero totale di match
+app.get('/api/connections/count', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const [result] = await db.execute(
+            `SELECT COUNT(*) as total FROM connections 
+             WHERE (user1_id = ? OR user2_id = ?) AND status = 'active'`,
+            [userId, userId]
+        );
+        
+        res.json({
+            success: true,
+            total: result[0].total
+        });
+        
+    } catch (error) {
+        console.error('❌ Error counting connections:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -1308,11 +1606,13 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
         const otherUserId = parseInt(req.params.userId);
         const { limit = 50, offset = 0 } = req.query;
         
-        // Verifica che esista una connessione
+        // Verifica che esista una connessione (normalizza ID come nel DB: user1_id < user2_id)
+        const minUserId = Math.min(currentUserId, otherUserId);
+        const maxUserId = Math.max(currentUserId, otherUserId);
         const [connection] = await db.execute(
-            `SELECT id FROM connections 
-             WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)`,
-            [currentUserId, otherUserId, otherUserId, currentUserId]
+            `SELECT id, status FROM connections 
+             WHERE user1_id = ? AND user2_id = ? AND status = 'active'`,
+            [minUserId, maxUserId]
         );
         
         if (connection.length === 0) {
@@ -1322,7 +1622,9 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
             });
         }
         
-        // Recupera messaggi
+        // Recupera messaggi (LIMIT e OFFSET come numeri, non parametri)
+        const limitNum = parseInt(limit) || 50;
+        const offsetNum = parseInt(offset) || 0;
         const [messages] = await db.execute(
             `SELECT m.*, u.name as sender_name
              FROM messages m
@@ -1330,8 +1632,8 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
              WHERE (m.sender_id = ? AND m.receiver_id = ?) 
                 OR (m.sender_id = ? AND m.receiver_id = ?)
              ORDER BY m.created_at ASC
-             LIMIT ? OFFSET ?`,
-            [currentUserId, otherUserId, otherUserId, currentUserId, parseInt(limit), parseInt(offset)]
+             LIMIT ${limitNum} OFFSET ${offsetNum}`,
+            [currentUserId, otherUserId, otherUserId, currentUserId]
         );
         
         // Mark messages as read
@@ -1352,13 +1654,13 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
     }
 });
 
-// 🔵 POST /api/messages - Invia messaggio
+// 🔵 POST /api/messages - Invia messaggio (HTTP fallback per E2E)
 app.post('/api/messages', authenticateToken, async (req, res) => {
     try {
         const senderId = req.user.id;
-        const { receiverId, content } = req.body;
+        const { receiverId, content, encryptedContent } = req.body;
         
-        if (!receiverId || !content || content.trim().length === 0) {
+        if (!receiverId || (!content && !encryptedContent)) {
             return res.status(400).json({
                 success: false,
                 error: 'Dati messaggio non validi'
@@ -1366,10 +1668,12 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
         }
         
         // Verifica connessione
+        const minId = Math.min(senderId, receiverId);
+        const maxId = Math.max(senderId, receiverId);
+        
         const [connection] = await db.execute(
-            `SELECT id FROM connections 
-             WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)`,
-            [senderId, receiverId, receiverId, senderId]
+            'SELECT id FROM connections WHERE user1_id = ? AND user2_id = ? AND status = ?',
+            [minId, maxId, 'active']
         );
         
         if (connection.length === 0) {
@@ -1379,18 +1683,29 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
             });
         }
         
-        // TODO: Implementare cifratura lato client per E2E
-        // Per ora salviamo in chiaro con flag per futura migrazione
-        const encrypted = false;
-        const encryptionType = null;
+        // Supporto E2E: se encryptedContent è presente, lo usiamo
+        const messageContent = encryptedContent || content;
+        const isEncrypted = !!encryptedContent;
         
         const [result] = await db.execute(
             `INSERT INTO messages (sender_id, receiver_id, content, encrypted, encryption_type) 
              VALUES (?, ?, ?, ?, ?)`,
-            [senderId, receiverId, content.trim(), encrypted, encryptionType]
+            [senderId, receiverId, messageContent.trim(), isEncrypted, isEncrypted ? 'E2E' : null]
         );
         
-        console.log(`💬 Message: ${senderId} → ${receiverId}`);
+        // Emetti evento WebSocket al receiver E al sender
+        const messageData = {
+            id: result.insertId,
+            senderId: senderId,
+            receiverId: receiverId,
+            encryptedContent: encryptedContent,
+            content: isEncrypted ? null : content,
+            createdAt: new Date().toISOString()
+        };
+        io.to(`user_${receiverId}`).emit('new_message', messageData);
+        io.to(`user_${senderId}`).emit('new_message', messageData); // Mittente vede il proprio messaggio
+        
+        console.log(`💬 Message: ${senderId} → ${receiverId} (E2E: ${isEncrypted})`);
         
         res.json({
             success: true,
@@ -1400,6 +1715,66 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
         
     } catch (error) {
         console.error('❌ Error sending message:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 🔐 API PUBLIC KEYS (E2E ENCRYPTION)
+// ============================================
+
+// Save public key
+app.post('/api/keys/public', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { publicKey } = req.body;
+        
+        if (!publicKey) {
+            return res.status(400).json({ success: false, error: 'Public key required' });
+        }
+        
+        await db.execute(
+            'UPDATE users SET public_key = ? WHERE id = ?',
+            [publicKey, userId]
+        );
+        
+        res.json({ success: true, message: 'Public key saved' });
+    } catch (error) {
+        console.error('Error saving public key:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get public key for a user
+app.get('/api/keys/public/:userId', authenticateToken, async (req, res) => {
+    try {
+        const targetUserId = req.params.userId;
+        const currentUserId = req.user.id;
+        
+        // Check if they are connected
+        const minId = Math.min(currentUserId, targetUserId);
+        const maxId = Math.max(currentUserId, targetUserId);
+        
+        const [connection] = await db.execute(
+            'SELECT * FROM connections WHERE user1_id = ? AND user2_id = ? AND status = ?',
+            [minId, maxId, 'active']
+        );
+        
+        if (connection.length === 0) {
+            return res.status(403).json({ success: false, error: 'Non sei connesso con questo utente' });
+        }
+        
+        const [rows] = await db.execute(
+            'SELECT public_key FROM users WHERE id = ?',
+            [targetUserId]
+        );
+        
+        if (rows.length === 0 || !rows[0].public_key) {
+            return res.status(404).json({ success: false, error: 'Public key not found' });
+        }
+        
+        res.json({ success: true, publicKey: rows[0].public_key });
+    } catch (error) {
+        console.error('Error fetching public key:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -1774,6 +2149,20 @@ app.post('/api/projects/:id/vote', authenticateToken, async (req, res) => {
             [projectId]
         );
         
+        // 🔔 Invia notifica al proprietario del progetto
+        const voterName = req.user.name || 'Qualcuno';
+        const projectTitle = project[0].title;
+        const ownerId = project[0].user_id;
+        
+        if (ownerId !== userId) {
+            await db.execute(
+                `INSERT INTO notifications (sender_id, receiver_id, type, message, status, created_at) 
+                 VALUES (?, ?, 'spotlight_vote', ?, 'pending', NOW())`,
+                [userId, ownerId, `${voterName} ha votato "${projectTitle}" (${type === 'interested' ? '👍 Interessato' : '🤝 Vuole collaborare'})`]
+            );
+            console.log(`🔔 Notifica inviata a ${ownerId}: voto su progetto ${projectId}`);
+        }
+        
         res.json({
             success: true,
             message: 'Voto registrato',
@@ -1833,8 +2222,207 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// 🔴 ADMIN ENDPOINT - Resetta tutte le connessioni e i match
+// ⚠️ Pericoloso: elimina TUTTI i collegamenti tra utenti
+app.post('/api/admin/reset-connections', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Verifica admin (puoi modificare questa logica)
+        // Per semplicità, consentiamo a chiunque sia autenticato (in produzione usa admin check)
+        console.log(`🚨 ADMIN REQUEST: User ${userId} sta resettando tutte le connessioni`);
+        
+        // 1. Conta quante connessioni esistono
+        const [connectionsCount] = await db.execute('SELECT COUNT(*) as count FROM connections');
+        const [notificationsCount] = await db.execute(
+            "SELECT COUNT(*) as count FROM notifications WHERE type IN ('match_request', 'match_accepted', 'match_rejected')"
+        );
+        const [messagesCount] = await db.execute('SELECT COUNT(*) as count FROM messages');
+        
+        // 2. Elimina tutte le connessioni
+        await db.execute('DELETE FROM connections');
+        
+        // 3. Elimina tutte le notifiche di match
+        await db.execute(
+            "DELETE FROM notifications WHERE type IN ('match_request', 'match_accepted', 'match_rejected')"
+        );
+        
+        // 4. Elimina tutti i messaggi (opzionale - commenta se vuoi mantenere)
+        await db.execute('DELETE FROM messages');
+        
+        // 5. Resetta le chiavi pubbliche E2E (opzionale)
+        await db.execute('UPDATE users SET public_key = NULL');
+        
+        console.log(`✅ RESET COMPLETATO da user ${userId}:`);
+        console.log(`   - Connessioni eliminate: ${connectionsCount[0].count}`);
+        console.log(`   - Notifiche eliminate: ${notificationsCount[0].count}`);
+        console.log(`   - Messaggi eliminati: ${messagesCount[0].count}`);
+        
+        res.json({
+            success: true,
+            message: 'Tutte le connessioni e i match sono stati resettati',
+            deleted: {
+                connections: connectionsCount[0].count,
+                notifications: notificationsCount[0].count,
+                messages: messagesCount[0].count
+            },
+            note: 'Tutti gli utenti dovranno creare nuove connessioni'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error resetting connections:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Servi file statici dalla cartella uploads
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// ============================================
+// 💬 WEBSOCKET CHAT SYSTEM
+// ============================================
+
+// Connected users tracking for online status
+const connectedUsers = new Map(); // userId -> socketId
+const userSockets = new Map(); // socketId -> userId
+const typingUsers = new Map(); // userId -> {receiverId, timeout}
+
+// Socket.io authentication middleware
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+        return next(new Error('Authentication required'));
+    }
+    
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            return next(new Error('Invalid token'));
+        }
+        socket.userId = user.id;
+        socket.user = user;
+        next();
+    });
+});
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+    const userId = socket.userId;
+    console.log(`🔌 User connected: ${userId} (socket: ${socket.id})`);
+    
+    // Track connected user
+    connectedUsers.set(userId, socket.id);
+    userSockets.set(socket.id, userId);
+    
+    // Notify others that user is online
+    socket.broadcast.emit('user_online', { userId });
+    
+    // Send current online users to the connected user
+    const onlineUserIds = Array.from(connectedUsers.keys()).filter(id => id !== userId);
+    socket.emit('online_users', { users: onlineUserIds });
+    
+    // Join user's room for direct messages
+    socket.join(`user_${userId}`);
+    
+    // Handle typing indicator
+    socket.on('typing', ({ receiverId, isTyping }) => {
+        if (isTyping) {
+            // Clear existing timeout if any
+            if (typingUsers.has(userId)) {
+                clearTimeout(typingUsers.get(userId).timeout);
+            }
+            
+            // Set new timeout to clear typing status after 3 seconds
+            const timeout = setTimeout(() => {
+                typingUsers.delete(userId);
+                io.to(`user_${receiverId}`).emit('typing', { userId, isTyping: false });
+            }, 3000);
+            
+            typingUsers.set(userId, { receiverId, timeout });
+            io.to(`user_${receiverId}`).emit('typing', { userId, isTyping: true });
+        } else {
+            if (typingUsers.has(userId)) {
+                clearTimeout(typingUsers.get(userId).timeout);
+                typingUsers.delete(userId);
+            }
+            io.to(`user_${receiverId}`).emit('typing', { userId, isTyping: false });
+        }
+    });
+    
+    // Handle new message via socket
+    socket.on('send_message', async (data, callback) => {
+        try {
+            const { receiverId, encryptedContent } = data;
+            
+            // Verify connection exists
+            const minId = Math.min(userId, receiverId);
+            const maxId = Math.max(userId, receiverId);
+            
+            const [connection] = await db.execute(
+                'SELECT id FROM connections WHERE user1_id = ? AND user2_id = ? AND status = ?',
+                [minId, maxId, 'active']
+            );
+            
+            if (connection.length === 0) {
+                return callback({ success: false, error: 'Non sei connesso con questo utente' });
+            }
+            
+            // Save message to database (E2E encrypted)
+            const [result] = await db.execute(
+                'INSERT INTO messages (sender_id, receiver_id, content, encrypted, encryption_type) VALUES (?, ?, ?, ?, ?)',
+                [userId, receiverId, encryptedContent, true, 'E2E']
+            );
+            
+            const messageData = {
+                id: result.insertId,
+                senderId: userId,
+                receiverId: receiverId,
+                encryptedContent: encryptedContent,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Send to receiver AND sender
+            io.to(`user_${receiverId}`).emit('new_message', messageData);
+            io.to(`user_${userId}`).emit('new_message', messageData); // Mittente vede il proprio messaggio
+            
+            // Confirm to sender
+            callback({ success: true, messageId: result.insertId });
+            
+            console.log(`💬 Message sent: ${userId} → ${receiverId}`);
+        } catch (error) {
+            console.error('Error sending message via socket:', error);
+            callback({ success: false, error: error.message });
+        }
+    });
+    
+    // Handle message read status
+    socket.on('mark_read', async ({ senderId }) => {
+        try {
+            await db.execute(
+                'UPDATE messages SET is_read = TRUE, read_at = NOW() WHERE sender_id = ? AND receiver_id = ? AND is_read = FALSE',
+                [senderId, userId]
+            );
+            io.to(`user_${senderId}`).emit('messages_read', { by: userId });
+        } catch (error) {
+            console.error('Error marking messages as read:', error);
+        }
+    });
+    
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        console.log(`🔌 User disconnected: ${userId} (socket: ${socket.id})`);
+        connectedUsers.delete(userId);
+        userSockets.delete(socket.id);
+        
+        // Clear typing status
+        if (typingUsers.has(userId)) {
+            clearTimeout(typingUsers.get(userId).timeout);
+            typingUsers.delete(userId);
+        }
+        
+        // Notify others that user is offline
+        socket.broadcast.emit('user_offline', { userId });
+    });
+});
 
 // ============================================
 // Validate required environment variables
@@ -1869,11 +2457,13 @@ async function startServer() {
     // Initialize Google OAuth
     initGoogleOAuth();
     
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
         console.log(`✅ Server running on port ${PORT}`);
         console.log(`📍 API endpoints available at http://localhost:${PORT}/api/`);
         console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
         console.log(`💡 Spotlight test: http://localhost:${PORT}/api/projects/test`);
+        console.log(`💬 WebSocket Chat: Active`);
+        console.log(`🔐 E2E Encryption: Ready`);
         console.log('');
         console.log('📋 Registered endpoints:');
         console.log('  - POST /api/projects (create project)');
@@ -1881,6 +2471,9 @@ async function startServer() {
         console.log('  - GET  /api/projects/my (my projects)');
         console.log('  - POST /api/projects/:id/vote (vote project)');
         console.log('  - DELETE /api/projects/:id (delete project)');
+        console.log('  - GET  /api/connections (my connections)');
+        console.log('  - GET  /api/messages/:userId (chat history)');
+        console.log('  - POST /api/messages (send message)');
     });
 }
 

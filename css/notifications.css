@@ -199,6 +199,11 @@
     color: #0f172a;
 }
 
+.notification-icon.vote {
+    background: linear-gradient(135deg, #ff9066 0%, #ff7b54 100%);
+    color: white;
+}
+
 .notification-content {
     flex: 1;
     min-width: 0;
@@ -274,6 +279,118 @@
 .btn-link:hover {
     color: #ffffff;
     text-decoration: underline;
+}
+
+/* ===== TABS NOTIFICHE (Inviate/Ricevute) ===== */
+.notification-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid rgba(160, 209, 255, 0.1);
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.notification-tab {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.notification-tab:hover {
+    background: rgba(160, 209, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.notification-tab.active {
+    background: rgba(160, 209, 255, 0.15);
+    color: #a0d1ff;
+}
+
+.notification-tab .badge {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);
+    color: white;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    min-width: 16px;
+}
+
+/* ===== NOTIFICA INVIATA (Stile Minimal) ===== */
+.notification-item.sent {
+    opacity: 0.85;
+    border-left: 3px solid transparent;
+}
+
+.notification-item.sent .notification-icon {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.notification-item.sent .notification-content p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+}
+
+.notification-item.sent .notification-content p strong {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+.notification-item.sent .notification-content p::before {
+    content: '→ ';
+    color: #a0d1ff;
+    opacity: 0.7;
+}
+
+/* ===== STATUS INDICATOR ===== */
+.notification-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+    font-weight: 500;
+}
+
+.notification-status.pending {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+.notification-status.accepted {
+    background: rgba(56, 239, 125, 0.15);
+    color: #38ef7d;
+}
+
+.notification-status.rejected {
+    background: rgba(255, 71, 87, 0.15);
+    color: #ff4757;
+}
+
+.notification-status.read {
+    background: rgba(160, 209, 255, 0.15);
+    color: #a0d1ff;
+}
+
+.notification-status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
 }
 
 /* ===== TOAST NOTIFICATIONS ===== */
@@ -530,6 +647,147 @@
 
 .btn-danger {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* ===== MATCH CARD - Connessioni e Richieste ===== */
+.your-matches-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.matches-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+    border: 1px solid rgba(160, 209, 255, 0.15);
+    border-radius: 16px;
+    padding: 1.25rem;
+    backdrop-filter: blur(10px);
+}
+
+.matches-card h3 {
+    color: #a0d1ff;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.matches-card h3 i {
+    font-size: 1.2rem;
+}
+
+.matches-list-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mini-match-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 12px;
+    border: 1px solid rgba(160, 209, 255, 0.1);
+    transition: all 0.2s ease;
+}
+
+.mini-match-item:hover {
+    background: rgba(160, 209, 255, 0.1);
+    transform: translateX(4px);
+}
+
+.mini-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6dd5fa 0%, #a0d1ff 100%);
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.mini-avatar.pending {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.mini-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mini-info h5 {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mini-info p {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mini-status {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.mini-status.active {
+    background: rgba(56, 239, 125, 0.15);
+    color: #38ef7d;
+}
+
+.mini-status-text {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    margin: 0.25rem 0 0 0;
+}
+
+.mini-status-text.pending {
+    color: #ffc107;
+}
+
+.mini-status-text.accepted {
+    color: #38ef7d;
+}
+
+.mini-status-text.rejected {
+    color: #ff4757;
+}
+
+.empty-mini {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 1.5rem;
+    margin: 0;
+    font-style: italic;
+}
     color: white;
     border: none;
     cursor: pointer;
@@ -551,13 +809,13 @@
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .notification-dropdown {
-        width: calc(100vw - 40px);
+        width: calc(100% - 40px);
         right: -10px;
     }
     
     .toast {
         min-width: auto;
-        max-width: calc(100vw - 40px);
+        max-width: calc(100% - 40px);
     }
     
     .requests-container {

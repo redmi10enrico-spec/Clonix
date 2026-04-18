@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Clonix | Community Dashboard</title>
     <!-- CSS Modulari -->
     <link rel="stylesheet" href="css/base.css">
@@ -22,10 +22,26 @@
     <link rel="stylesheet" href="css/chat-system.css">
     <link rel="stylesheet" href="css/personalization-safe.css">
     <link rel="stylesheet" href="css/spotlight.css">
+    <link rel="stylesheet" href="css/responsive.css">
     <!-- Font: Plus Jakarta Sans per un look moderno -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
     <!-- Icone: Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Socket.io Client -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- Chat System -->
+    <script src="scripts/chat.js" defer></script>
+    
+    <!-- Global API Configuration -->
+    <script>
+        window.API_CONFIG = {
+            BASE_URL: 'http://localhost:3001',
+            API_URL: 'http://localhost:3001/api',
+            SOCKET_URL: 'http://localhost:3001'
+        };
+    </script>
     
     <!-- Authentication Check -->
     <script>
@@ -47,7 +63,7 @@
             try {
                 console.log('Verifying token with backend...');
                 // Verify token with backend
-                const response = await fetch('http://localhost:3001/api/me', {
+                const response = await fetch(`${window.API_CONFIG.API_URL}/me`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -93,10 +109,28 @@
         <!-- Background will be dynamically inserted here -->
     </div>
 
+    <!-- Mobile Header -->
+    <header class="mobile-header">
+        <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">
+            <i class="ph ph-list"></i>
+        </button>
+        <div class="logo">
+            <img src="assets/Clonix-No-Background.png" alt="Clonix Logo" class="logo-img animate-hologram">
+            <span class="neon-text">Clonix</span>
+        </div>
+        <div style="width: 44px;"></div>
+    </header>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" onclick="closeSidebar()"></div>
+
     <div class="app-container">
-        
+
         <!-- SIDEBAR -->
         <aside class="sidebar">
+            <button class="sidebar-close" onclick="closeSidebar()" aria-label="Chiudi menu">
+                <i class="ph ph-x"></i>
+            </button>
             <div class="logo">
                 <img src="assets/Clonix-No-Background.png" alt="Clonix Logo" class="logo-img animate-hologram">
                 <span class="neon-text">Clonix</span>
@@ -146,11 +180,20 @@
                                     <h3>Notifiche</h3>
                                     <span id="notificationCount">0 nuove</span>
                                 </div>
+                                <div class="notification-tabs">
+                                    <button class="notification-tab active" onclick="switchNotificationTab('received')" id="tabReceived">
+                                        <i class="ph ph-arrow-down-left"></i> Ricevute
+                                        <span class="badge" id="tabReceivedBadge" style="display: none;">0</span>
+                                    </button>
+                                    <button class="notification-tab" onclick="switchNotificationTab('sent')" id="tabSent">
+                                        <i class="ph ph-arrow-up-right"></i> Inviate
+                                    </button>
+                                </div>
                                 <div class="notification-list" id="notificationList">
                                     <p class="notification-empty">Nessuna notifica</p>
                                 </div>
                                 <div class="notification-footer">
-                                    <button onclick="loadNotifications()" class="btn-link">Aggiorna</button>
+                                    <button onclick="refreshNotifications()" class="btn-link">Aggiorna</button>
                                     <button onclick="markAllRead()" class="btn-link">Segna tutte come lette</button>
                                 </div>
                             </div>
@@ -227,7 +270,7 @@
                     <div id="matchesEmpty" style="display: none; padding: 20px; text-align: center;">
                         <p style="color: var(--text-secondary);">😕 Nessun match trovato</p>
                         <p style="font-size: 0.9rem; margin-top: 10px;">Aggiungi più competenze al tuo profilo per trovare match compatibili!</p>
-                        <button class="btn-primary btn-small" onclick="window.location.href='#profileSection'" style="margin-top: 15px;">
+                        <button class="btn-primary btn-small" onclick="showSection('profile'); document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active')); document.querySelector('.menu-item:nth-child(7)').classList.add('active');" style="margin-top: 15px;">
                             👤 Vai al Profilo
                         </button>
                     </div>
@@ -572,6 +615,32 @@
                 </div>
             </section>
 
+            <!-- I TUOI MATCH - Card connessioni e richieste -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="ph ph-heart"></i> I Tuoi Match</h2>
+                    <span class="badge-soft" id="yourMatchesCount">0 connessioni</span>
+                </div>
+                
+                <div class="your-matches-container" id="yourMatchesContainer">
+                    <!-- Connessioni Attive -->
+                    <div class="matches-card">
+                        <h3><i class="ph ph-user-check"></i> Connessioni</h3>
+                        <div class="matches-list-mini" id="connectionsList">
+                            <p class="empty-mini">Nessuna connessione attiva</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Richieste Inviate -->
+                    <div class="matches-card">
+                        <h3><i class="ph ph-paper-plane-right"></i> Richieste Inviate</h3>
+                        <div class="matches-list-mini" id="sentRequestsMatchList">
+                            <p class="empty-mini">Nessuna richiesta inviata</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Match Grid - Layout innovativo -->
             <section class="section">
                 <div class="section-header">
@@ -597,7 +666,7 @@
                     <div class="empty-icon">🤔</div>
                     <h3>Nessun match trovato</h3>
                     <p>Aggiungi più competenze al tuo profilo per trovare persone compatibili.</p>
-                    <button class="btn-primary" onclick="window.location.href='#profileSection'">
+                    <button class="btn-primary" onclick="showSection('profile'); document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active')); document.querySelector('.menu-item:nth-child(7)').classList.add('active');">
                         👤 Completa il Profilo
                     </button>
                 </div>
@@ -816,7 +885,7 @@
                         <h2>I tuoi Match</h2>
                         <p id="connectionsCount">0 connessioni attive</p>
                     </div>
-                    <div class="connections-list" id="connectionsList">
+                    <div class="connections-list" id="connectionsListChat">
                         <p class="empty-state">Nessun match ancora. Vai nella sezione Match per trovare persone!</p>
                     </div>
                 </div>
@@ -827,7 +896,13 @@
                         <div class="chat-header-avatar" id="chatHeaderAvatar">?</div>
                         <div class="chat-header-info">
                             <h3 id="chatHeaderName">Seleziona un match</h3>
-                            <span id="chatHeaderStatus">Scegli qualcuno dalla lista</span>
+                            <div class="chat-header-status">
+                                <span id="chatHeaderStatus">Scegli qualcuno dalla lista</span>
+                                <span id="chatConnectionStatus" class="chat-connection-status disconnected" title="Connessione..."></span>
+                                <span class="e2e-badge" title="Crittografia End-to-End attiva">
+                                    <i class="ph ph-lock-key"></i> E2E
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <div class="chat-messages" id="chatMessages">
@@ -1425,7 +1500,7 @@
             
             if (token) {
                 // Call logout API
-                await fetch('http://localhost:3001/api/logout', {
+                await fetch(`${window.API_CONFIG.API_URL}/logout`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -1527,19 +1602,58 @@
         }
     }
 
-    // Load real user data into profile section
-    function loadProfileData() {
+    // Load real user data from DATABASE (not just localStorage)
+    async function loadProfileData() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        const token = localStorage.getItem('authToken');
         
-        if (!currentUser) {
-            console.log('No user data found in localStorage');
+        if (!currentUser || !token) {
+            console.log('No user data or token found');
             return;
         }
         
         console.log('Loading profile data for user:', currentUser);
         
-        // Split name into first and last name
-        const fullName = currentUser.name || '';
+        try {
+            // 🔄 Carica dati aggiornati dal database
+            const API_BASE_URL = window.API_CONFIG.API_URL;
+            const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.user) {
+                    // Aggiorna localStorage con i dati dal database
+                    const updatedUser = {
+                        ...currentUser,
+                        name: data.user.name,
+                        email: data.user.email,
+                        skills: data.user.skills || []
+                    };
+                    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                    
+                    // Usa i dati dal database
+                    userSkills = data.user.skills || [];
+                    console.log('✅ Skills caricate dal DB:', userSkills);
+                    renderSkills(); // Mostra skills caricate
+                    
+                    console.log('✅ Profilo caricato dal database:', updatedUser);
+                }
+            }
+        } catch (error) {
+            // Se fallisce il caricamento dal DB, usa localStorage come fallback
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.skills) {
+                console.log('Fallback a localStorage per skills');
+                userSkills = currentUser.skills;
+                renderSkills();
+            }
+        }
+        
+        // Usa i dati (da DB o localStorage)
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        const fullName = user.name || '';
         const nameParts = fullName.split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
@@ -1551,7 +1665,7 @@
         
         if (nameInput) nameInput.value = firstName;
         if (surnameInput) surnameInput.value = lastName;
-        if (emailInput) emailInput.value = currentUser.email || '';
+        if (emailInput) emailInput.value = user.email || '';
         
         // Update avatar initial
         const avatarElement = document.querySelector('.profile-avatar-large');
@@ -1559,8 +1673,8 @@
             avatarElement.textContent = firstName.charAt(0).toUpperCase();
         }
         
-        // Load skills
-        loadSkills();
+        // Renderizza skills
+        renderSkills();
         
         console.log('Profile data loaded successfully');
     }
@@ -1571,13 +1685,19 @@
         console.log('Profile changes reset');
     }
 
-    // Save profile changes to localStorage
+    // 💾 Salva profilo nel DATABASE (non solo localStorage)
     async function saveProfileData() {
         const nameInput = document.getElementById('profileName');
         const surnameInput = document.getElementById('profileSurname');
+        const token = localStorage.getItem('authToken');
         
         if (!nameInput || !surnameInput) {
             console.error('Profile inputs not found');
+            return;
+        }
+        
+        if (!token) {
+            alert('Errore: non sei autenticato');
             return;
         }
         
@@ -1592,21 +1712,96 @@
             return;
         }
         
-        // Update name
-        currentUser.name = fullName;
+        try {
+            const API_BASE_URL = window.API_CONFIG.API_URL;
+            
+            // 1. 💾 Salva NOME nel database
+            const profileResponse = await fetch(`${API_BASE_URL}/users/${currentUser.id}/profile`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: fullName })
+            });
+            
+            if (!profileResponse.ok) {
+                const error = await profileResponse.json();
+                throw new Error(error.error || 'Errore salvataggio profilo');
+            }
+            
+            // 2. 💾 Salva SKILLS nel database
+            const skillsResponse = await fetch(`${API_BASE_URL}/users/${currentUser.id}/skills`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ skills: userSkills })
+            });
+            
+            if (!skillsResponse.ok) {
+                const error = await skillsResponse.json();
+                throw new Error(error.error || 'Errore salvataggio skills');
+            }
+            
+            // 3. Aggiorna localStorage
+            currentUser.name = fullName;
+            currentUser.skills = userSkills;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            console.log('✅ Profilo salvato nel database:', currentUser);
+            console.log('✅ Skills salvate nel database:', userSkills);
+            alert('Modifiche salvate con successo nel database! 🎉');
+            
+        } catch (error) {
+            console.error('❌ Errore salvataggio:', error);
+            alert('Errore durante il salvataggio: ' + error.message);
+        }
+    }
+
+    // 🔢 Carica il numero totale di match dal backend
+    async function loadTotalMatchesCount() {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
         
-        // Save skills
-        currentUser.skills = userSkills;
-        
-        // Save back to localStorage
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        
-        // 💾 Sincronizza skill nel database per il matching
-        await syncSkillsToDatabase();
-        
-        console.log('Profile saved:', currentUser);
-        console.log('Skills saved:', userSkills);
-        alert('Modifiche salvate con successo!');
+        try {
+            const API_BASE_URL = window.API_CONFIG.API_URL;
+            const response = await fetch(`${API_BASE_URL}/connections/count`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) {
+                console.warn('⚠️  Errore caricamento conteggio match');
+                return;
+            }
+            
+            const data = await response.json();
+            const totalMatches = data.total || 0;
+            
+            // Aggiorna il conteggio nel dashboard (stat card principale)
+            const dashboardStat = document.querySelector('.stats-overview .stat-content h3');
+            if (dashboardStat) {
+                dashboardStat.textContent = totalMatches;
+            }
+            
+            // Aggiorna il conteggio nel profilo (stat-item)
+            const profileStat = document.querySelector('.profile-stats .stat-item h3');
+            if (profileStat) {
+                profileStat.textContent = totalMatches;
+            }
+            
+            // Aggiorna anche il mini-stat nella sezione profilo se esiste
+            const totalMatchesCount = document.getElementById('totalMatchesCount');
+            if (totalMatchesCount) {
+                totalMatchesCount.textContent = totalMatches;
+            }
+            
+            console.log(`🔢 Match totali caricati: ${totalMatches}`);
+            
+        } catch (error) {
+            console.error('❌ Errore caricamento conteggio match:', error);
+        }
     }
 
     // 🎯 SISTEMA DI MATCHING - Carica match reali dal backend
@@ -1633,8 +1828,9 @@
         emptyState.style.display = 'none';
         
         try {
-            const API_BASE_URL = 'http://localhost:3001/api';
-            const response = await fetch(`${API_BASE_URL}/matches/${currentUser.id}?limit=10`, {
+            const API_BASE_URL = window.API_CONFIG.API_URL;
+            const userId = parseInt(currentUser.id);
+            const response = await fetch(`${API_BASE_URL}/matches/${userId}?limit=10`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1738,38 +1934,6 @@
         }).join('');
     }
 
-    // 💾 Salva le skill anche nel database quando si salvano le modifiche profilo
-    async function syncSkillsToDatabase() {
-        const token = localStorage.getItem('authToken');
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        
-        if (!token || !currentUser || !currentUser.skills || currentUser.skills.length === 0) {
-            return;
-        }
-        
-        try {
-            const API_BASE_URL = 'http://localhost:3001/api';
-            const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}/skills`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ skills: currentUser.skills })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log('✅ Skills sincronizzate nel database');
-            } else {
-                console.warn('⚠️ Errore sincronizzazione skills:', data.error);
-            }
-        } catch (error) {
-            console.error('❌ Errore sync skills:', error);
-        }
-    }
-
     // 🔀 NAVIGAZIONE TRA SEZIONI (FUNZIONE BASE)
     function showSection(sectionId) {
         // Nascondi tutte le sezioni
@@ -1782,6 +1946,11 @@
         const targetSection = document.getElementById(sectionId);
         if (targetSection) {
             targetSection.style.display = 'block';
+        }
+        
+        // Se è la sezione profilo, ricarica i dati dal database
+        if (sectionId === 'profileSection') {
+            loadProfileData();
         }
         
         // Aggiorna menu attivo
@@ -1817,40 +1986,122 @@
         document.getElementById('matchSectionGrid').innerHTML = '';
         
         try {
-            const API_BASE_URL = 'http://localhost:3001/api';
-            const response = await fetch(`${API_BASE_URL}/matches/${currentUser.id}?limit=50`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            const API_BASE_URL = window.API_CONFIG.API_URL;
+            const userId = parseInt(currentUser.id);
             
-            const contentType = response.headers.get('content-type');
+            // Carica match, connessioni e richieste in parallelo
+            const [matchesResponse, connectionsResponse, sentRequestsResponse] = await Promise.all([
+                fetch(`${API_BASE_URL}/matches/${userId}?limit=50`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                }),
+                fetch(`${API_BASE_URL}/connections`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }),
+                fetch(`${API_BASE_URL}/notifications/sent?limit=20`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+            ]);
+            
+            // Processa match
+            const contentType = matchesResponse.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 throw new Error('Risposta non valida dal server');
             }
             
-            const data = await response.json();
+            const data = await matchesResponse.json();
             
-            if (!response.ok || !data.success) {
+            if (!matchesResponse.ok || !data.success) {
                 throw new Error(data.error || 'Errore nel recupero dei match');
             }
             
             allMatchesData = data.data.matches || [];
             
-            // Aggiorna statistiche
-            updateMatchStats(allMatchesData);
+            // Processa connessioni
+            let connections = [];
+            if (connectionsResponse.ok) {
+                const connData = await connectionsResponse.json();
+                connections = connData.connections || [];
+            }
             
-            // Renderizza match
+            // Processa richieste inviate
+            let sentRequests = [];
+            if (sentRequestsResponse.ok) {
+                const reqData = await sentRequestsResponse.json();
+                sentRequests = (reqData.notifications || []).filter(n => n.type === 'match_request');
+            }
+            
+            // Renderizza tutto
+            renderConnectionsAndRequests(connections, sentRequests);
+            updateMatchStats(allMatchesData);
             renderMatchSection(allMatchesData);
             
-            console.log(`✅ Caricati ${allMatchesData.length} match nella sezione`);
+            console.log(`✅ Caricati ${allMatchesData.length} match, ${connections.length} connessioni, ${sentRequests.length} richieste`);
             
         } catch (error) {
             console.error('❌ Errore:', error);
             document.getElementById('matchSectionLoading').style.display = 'none';
             document.getElementById('matchSectionEmpty').style.display = 'block';
+        }
+    }
+    
+    // Renderizza connessioni e richieste inviate nella card
+    function renderConnectionsAndRequests(connections, sentRequests) {
+        const connectionsList = document.getElementById('connectionsList');
+        const sentRequestsList = document.getElementById('sentRequestsMatchList');
+        const yourMatchesCount = document.getElementById('yourMatchesCount');
+        
+        // Aggiorna conteggio
+        const totalConnections = connections.length;
+        const totalSent = sentRequests.length;
+        yourMatchesCount.textContent = `${totalConnections} connessioni`;
+        
+        // Renderizza connessioni
+        if (connections.length === 0) {
+            connectionsList.innerHTML = '<p class="empty-mini">Nessuna connessione attiva</p>';
+        } else {
+            connectionsList.innerHTML = connections.map(conn => {
+                const initials = conn.name ? conn.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
+                const userId = conn.user_id || conn.other_user_id || conn.id;
+                return `
+                    <div class="mini-match-item" onclick="openChat(${userId}, '${conn.name || 'Utente'}')" style="cursor: pointer;" title="Clicca per chattare">
+                        <div class="mini-avatar">${initials}</div>
+                        <div class="mini-info">
+                            <h5>${conn.name || 'Utente'}</h5>
+                            <p>${conn.skills ? conn.skills.slice(0, 3).join(', ') : ''}</p>
+                        </div>
+                        <span class="mini-status active" title="Connessione attiva">
+                            <i class="ph ph-check-circle"></i>
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Renderizza richieste inviate
+        if (sentRequests.length === 0) {
+            sentRequestsList.innerHTML = '<p class="empty-mini">Nessuna richiesta inviata</p>';
+        } else {
+            sentRequestsList.innerHTML = sentRequests.map(req => {
+                const statusIcon = req.status === 'pending' ? 'ph-clock' : 
+                                  req.status === 'accepted' ? 'ph-check' : 'ph-x';
+                const statusClass = req.status === 'pending' ? 'pending' : 
+                                   req.status === 'accepted' ? 'accepted' : 'rejected';
+                const statusText = req.status === 'pending' ? 'In attesa' : 
+                                  req.status === 'accepted' ? 'Accettata' : 'Rifiutata';
+                
+                return `
+                    <div class="mini-match-item">
+                        <div class="mini-avatar pending">?</div>
+                        <div class="mini-info">
+                            <h5>${req.receiver_name || 'Utente'}</h5>
+                            <p class="mini-status-text ${statusClass}">
+                                <i class="ph ${statusIcon}"></i> ${statusText}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
     }
 
@@ -2017,14 +2268,96 @@
         alert(`Funzionalità messaggio a ${userName} in sviluppo! 🚧`);
     }
 
+    // ⏱️ SISTEMA TRACKING TEMPO DI STUDIO
+    let studyTimeInterval = null;
+    let studyTimeSeconds = parseInt(localStorage.getItem('studyTimeSeconds') || '0');
+    
+    function startStudyTimeTracking() {
+        // Aggiorna il display iniziale
+        updateStudyTimeDisplay();
+        
+        // Incrementa il tempo ogni secondo
+        studyTimeInterval = setInterval(() => {
+            studyTimeSeconds++;
+            localStorage.setItem('studyTimeSeconds', studyTimeSeconds.toString());
+            
+            // Aggiorna display ogni 60 secondi (1 minuto)
+            if (studyTimeSeconds % 60 === 0) {
+                updateStudyTimeDisplay();
+            }
+        }, 1000);
+        
+        console.log('⏱️  Tracking tempo di studio avviato');
+    }
+    
+    function updateStudyTimeDisplay() {
+        // Calcola ore e minuti
+        const hours = Math.floor(studyTimeSeconds / 3600);
+        const minutes = Math.floor((studyTimeSeconds % 3600) / 60);
+        
+        // Formatta il display
+        let displayText = '';
+        if (hours > 0) {
+            displayText = `${hours}h`;
+        } else {
+            displayText = `${minutes}m`;
+        }
+        
+        // Aggiorna la stat card nel dashboard
+        const studyTimeStat = document.querySelector('.stats-overview .stat-card:nth-child(2) .stat-content h3');
+        if (studyTimeStat) {
+            studyTimeStat.textContent = displayText;
+        }
+        
+        // Aggiorna anche la barra dei goal se esiste
+        const goalText = document.querySelector('.goal-info h4');
+        if (goalText && goalText.textContent.includes('ore di studio')) {
+            const goalProgress = Math.min(Math.floor((hours / 200) * 100), 100);
+            const goalPercentage = goalText.parentElement?.querySelector('.goal-percentage');
+            if (goalPercentage) {
+                goalPercentage.textContent = `${goalProgress}%`;
+            }
+            const goalP = goalText.parentElement?.querySelector('p');
+            if (goalP) {
+                goalP.textContent = `${hours}/200 ore completate`;
+            }
+        }
+    }
+    
+    function stopStudyTimeTracking() {
+        if (studyTimeInterval) {
+            clearInterval(studyTimeInterval);
+            studyTimeInterval = null;
+            console.log('⏱️  Tracking tempo di studio fermato');
+        }
+    }
+    
+    // Ferma il tracking quando l'utente chiude la pagina
+    window.addEventListener('beforeunload', () => {
+        stopStudyTimeTracking();
+    });
+    
+    // Pausa quando la pagina non è visibile (tab in background)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopStudyTimeTracking();
+        } else {
+            startStudyTimeTracking();
+        }
+    });
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         updateWelcomeMessage();
         loadProfileData();
         
-        // 🎯 Carica i match dopo un breve delay per permettere l'autenticazione
+        // ⏱️ Avvia tracking tempo di studio
+        startStudyTimeTracking();
+        
+        // 🎯 Carica i match e il conteggio totale dopo un breve delay
         setTimeout(() => {
             loadMatches();
+            loadTotalMatchesCount();
         }, 1000);
         
         // ✨ Inizializza effetti interattivi per le card match
@@ -2057,10 +2390,12 @@
 // 🔔 SISTEMA NOTIFICHE - FRONTEND
 // ============================================
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = window.API_CONFIG.API_URL;
 
 let notificationsData = [];
+let sentNotificationsData = [];
 let notificationInterval = null;
+let currentNotificationTab = 'received'; // 'received' o 'sent'
 
 // Toggle dropdown notifiche
 function toggleNotifications() {
@@ -2070,7 +2405,7 @@ function toggleNotifications() {
     if (dropdown.style.display === 'none') {
         dropdown.style.display = 'block';
         btn.classList.add('active');
-        loadNotifications();
+        refreshNotifications();
     } else {
         dropdown.style.display = 'none';
         btn.classList.remove('active');
@@ -2088,7 +2423,28 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Carica notifiche dal server
+// Switch tra tab Ricevute/Inviate
+function switchNotificationTab(tab) {
+    currentNotificationTab = tab;
+    
+    // Aggiorna UI tabs
+    document.getElementById('tabReceived').classList.toggle('active', tab === 'received');
+    document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
+    
+    // Ricarica notifiche
+    refreshNotifications();
+}
+
+// Refresh notifiche in base al tab attivo
+async function refreshNotifications() {
+    if (currentNotificationTab === 'received') {
+        await loadNotifications();
+    } else {
+        await loadSentNotifications();
+    }
+}
+
+// Carica notifiche ricevute dal server
 async function loadNotifications() {
     try {
         const token = localStorage.getItem('authToken');
@@ -2108,6 +2464,28 @@ async function loadNotifications() {
         
     } catch (error) {
         console.error('❌ Error loading notifications:', error);
+    }
+}
+
+// Carica notifiche inviate dal server
+async function loadSentNotifications() {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        const response = await fetch(`${API_BASE_URL}/notifications/sent?limit=20`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load sent notifications');
+        
+        const data = await response.json();
+        sentNotificationsData = data.notifications || [];
+        
+        renderSentNotifications();
+        
+    } catch (error) {
+        console.error('❌ Error loading sent notifications:', error);
     }
 }
 
@@ -2155,12 +2533,21 @@ function updateNotificationBadge(count) {
     }
 }
 
-// Render notifiche in dropdown
+// Render notifiche ricevute in dropdown
 function renderNotifications() {
     const list = document.getElementById('notificationList');
+    const tabBadge = document.getElementById('tabReceivedBadge');
+    
+    // Aggiorna badge sul tab
+    if (notificationsData.length > 0) {
+        tabBadge.textContent = notificationsData.length;
+        tabBadge.style.display = 'inline-flex';
+    } else {
+        tabBadge.style.display = 'none';
+    }
     
     if (notificationsData.length === 0) {
-        list.innerHTML = '<p class="notification-empty">Nessuna notifica</p>';
+        list.innerHTML = '<p class="notification-empty">📭 Nessuna notifica ricevuta</p>';
         return;
     }
     
@@ -2168,11 +2555,13 @@ function renderNotifications() {
         const isUnread = notif.status === 'pending';
         const iconClass = notif.type === 'match_request' ? 'match' : 
                          notif.type === 'match_accepted' ? 'accepted' : 
-                         notif.type === 'match_rejected' ? 'rejected' : 'message';
+                         notif.type === 'match_rejected' ? 'rejected' : 
+                         notif.type === 'spotlight_vote' ? 'vote' : 'message';
         
         const icon = notif.type === 'match_request' ? 'ph-heart' : 
                      notif.type === 'match_accepted' ? 'ph-check' : 
-                     notif.type === 'match_rejected' ? 'ph-x' : 'ph-chat-circle';
+                     notif.type === 'match_rejected' ? 'ph-x' : 
+                     notif.type === 'spotlight_vote' ? 'ph-star' : 'ph-chat-circle';
         
         const timeAgo = formatTimeAgo(new Date(notif.created_at));
         
@@ -2190,19 +2579,76 @@ function renderNotifications() {
             `;
         }
         
+        // Messaggio personalizzato per spotlight
+        let messageText = '';
+        if (notif.type === 'spotlight_vote') {
+            messageText = notif.message || 'ha votato il tuo progetto';
+        } else {
+            messageText = `<strong>${notif.sender_name}</strong> ${getNotificationText(notif.type)}`;
+        }
+        
         return `
             <div class="notification-item ${isUnread ? 'unread' : ''}" data-id="${notif.id}">
                 <div class="notification-icon ${iconClass}">
                     <i class="ph ${icon}"></i>
                 </div>
                 <div class="notification-content">
-                    <p><strong>${notif.sender_name}</strong> ${getNotificationText(notif.type)}</p>
+                    <p>${messageText}</p>
                     <span>${timeAgo}</span>
                     ${actions}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+// Render notifiche inviate - Design minimal
+function renderSentNotifications() {
+    const list = document.getElementById('notificationList');
+    
+    if (sentNotificationsData.length === 0) {
+        list.innerHTML = '<p class="notification-empty">📤 Nessuna notifica inviata</p>';
+        return;
+    }
+    
+    list.innerHTML = sentNotificationsData.map(notif => {
+        const iconClass = notif.type === 'match_request' ? 'match' : 
+                         notif.type === 'match_accepted' ? 'accepted' : 
+                         notif.type === 'match_rejected' ? 'rejected' : 'message';
+        
+        const icon = notif.type === 'match_request' ? 'ph-heart' : 
+                     notif.type === 'match_accepted' ? 'ph-check' : 
+                     notif.type === 'match_rejected' ? 'ph-x' : 'ph-chat-circle';
+        
+        const timeAgo = formatTimeAgo(new Date(notif.created_at));
+        const statusClass = notif.status;
+        const statusText = getStatusText(notif.status);
+        
+        return `
+            <div class="notification-item sent" data-id="${notif.id}">
+                <div class="notification-icon ${iconClass}">
+                    <i class="ph ${icon}"></i>
+                </div>
+                <div class="notification-content">
+                    <p><strong>${notif.receiver_name}</strong> ${getNotificationText(notif.type)}</p>
+                    <span>
+                        ${timeAgo}
+                        <span class="notification-status ${statusClass}">${statusText}</span>
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function getStatusText(status) {
+    const texts = {
+        'pending': 'In attesa',
+        'accepted': 'Accettata',
+        'rejected': 'Rifiutata',
+        'read': 'Letta'
+    };
+    return texts[status] || status;
 }
 
 function getNotificationText(type) {
@@ -2256,6 +2702,8 @@ async function respondToMatch(notificationId, response) {
             // Se accettato, aggiorna lista connessioni
             if (response === 'accepted') {
                 loadConnections();
+                // Aggiorna anche la card "Collegamenti" nella sezione Match
+                loadMatchSection();
             }
         } else {
             showToast('error', 'Errore', data.error || 'Qualcosa è andato storto');
@@ -2344,13 +2792,39 @@ function playNotificationSound() {
 // ============================================
 
 function startNotificationPolling() {
-    // Carica subito
-    loadNotifications();
+    // Carica subito (silenziosamente, senza log)
+    loadNotificationsSilent();
     
-    // Polling ogni 5 secondi per notifiche in tempo reale
+    // Polling ogni 30 secondi per notifiche (meno invasivo)
     notificationInterval = setInterval(() => {
-        loadNotifications();
-    }, 5000);
+        loadNotificationsSilent();
+    }, 30000);
+}
+
+// Versione silenziosa di loadNotifications (senza log in console)
+async function loadNotificationsSilent() {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        const response = await fetch(`${API_BASE_URL}/notifications?status=pending&limit=20`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        notificationsData = data.notifications || [];
+        
+        updateNotificationBadge(data.unreadCount || 0);
+        // Aggiorna solo se il dropdown è aperto
+        if (document.getElementById('notificationDropdown').style.display === 'block') {
+            renderNotifications();
+        }
+        
+    } catch (error) {
+        // Silenzioso in background
+    }
 }
 
 function stopNotificationPolling() {
@@ -2373,9 +2847,10 @@ async function loadAllNotifications() {
     console.log('🔍 Token presente:', !!token);
     
     try {
-        // Carica richieste ricevute (pending)
-        console.log('🔍 Fetching received notifications...');
-        const receivedUrl = `${API_BASE_URL}/notifications?status=pending&limit=50`;
+        // Carica TUTTE le richieste ricevute (match_request di qualsiasi stato)
+        console.log('🔍 Fetching received match requests...');
+        // Usiamo l'endpoint senza filtro status per ottenere tutte le notifiche
+        const receivedUrl = `${API_BASE_URL}/notifications?limit=50`;
         console.log('🔍 URL:', receivedUrl);
         
         const receivedResponse = await fetch(receivedUrl, {
@@ -2646,8 +3121,8 @@ async function loadConnections() {
 }
 
 function renderConnections() {
-    // Render nella sezione chat o match
-    const container = document.getElementById('connectionsList');
+    // Render nella sidebar della sezione Chat
+    const container = document.getElementById('connectionsListChat');
     if (!container) return;
     
     if (connectionsData.length === 0) {
@@ -2780,12 +3255,12 @@ let currentProjectTags = [];
 let selectedImageFile = null;
 
 // API Base URL
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = window.API_CONFIG.API_URL;
 
 // Test connessione al server all'avvio
 async function testServerConnection() {
     try {
-        const response = await fetch('http://localhost:3001/api/projects/test', { 
+        const response = await fetch(`${window.API_CONFIG.API_URL}/projects/test`, { 
             method: 'GET',
             cache: 'no-cache'
         });
@@ -2793,7 +3268,7 @@ async function testServerConnection() {
             console.log('✅ Server backend raggiungibile');
         }
     } catch (err) {
-        console.warn('⚠️  Server backend non raggiungibile su localhost:3001. Avvia con: node scripts/server.js');
+        console.warn('⚠️  Server backend non raggiungibile. Avvia con: node scripts/server-sqlite.js');
     }
 }
 
@@ -3373,6 +3848,185 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Bottom Navigation (Mobile) -->
+<nav class="bottom-nav">
+    <a href="#" class="bottom-nav-item active" onclick="showSection('dashboardSection'); updateBottomNav(this); return false;">
+        <i class="ph ph-squares-four"></i>
+        <span>Home</span>
+    </a>
+    <a href="#" class="bottom-nav-item" onclick="showSection('matchSection'); loadMatchSection(); updateBottomNav(this); return false;">
+        <i class="ph ph-users"></i>
+        <span>Match</span>
+        <span class="bottom-nav-badge" id="bottomMatchBadge" style="display: none;">!</span>
+    </a>
+    <a href="#" class="bottom-nav-item" onclick="showSection('spotlightSection'); loadSpotlightProjects(); updateBottomNav(this); return false;">
+        <i class="ph ph-sparkle"></i>
+        <span>Spotlight</span>
+    </a>
+    <a href="#" class="bottom-nav-item" onclick="showSection('chatSection'); updateBottomNav(this); return false;">
+        <i class="ph ph-chat-circle"></i>
+        <span>Chat</span>
+    </a>
+    <a href="#" class="bottom-nav-item" onclick="showSection('profileSection'); updateBottomNav(this); return false;">
+        <i class="ph ph-user"></i>
+        <span>Profilo</span>
+    </a>
+</nav>
+
 <script src="scripts/script.js"></script>
+
+<!-- Mobile Responsive Scripts -->
+<script>
+// ============================================
+// MOBILE NAVIGATION FUNCTIONS
+// ============================================
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+    document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+}
+
+function closeSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function updateBottomNav(element) {
+    // Remove active class from all items
+    document.querySelectorAll('.bottom-nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    // Add active class to clicked item
+    if (element) {
+        element.classList.add('active');
+    }
+}
+
+// Update bottom nav based on current section
+function updateBottomNavBySection(sectionId) {
+    const sectionMap = {
+        'dashboardSection': 0,
+        'matchSection': 1,
+        'spotlightSection': 2,
+        'chatSection': 3,
+        'profileSection': 4
+    };
+    
+    const index = sectionMap[sectionId];
+    if (index !== undefined) {
+        const items = document.querySelectorAll('.bottom-nav-item');
+        items.forEach((item, i) => {
+            item.classList.toggle('active', i === index);
+        });
+    }
+}
+
+// Override showSection to update bottom nav
+const originalShowSection = window.showSection;
+window.showSection = function(sectionId) {
+    // Call original function if exists
+    if (typeof originalShowSection === 'function') {
+        originalShowSection(sectionId);
+    } else {
+        // Default behavior
+        document.querySelectorAll('.main-content').forEach(section => {
+            section.style.display = 'none';
+        });
+        const targetSection = document.getElementById(sectionId);
+        if (targetSection) {
+            targetSection.style.display = 'block';
+        }
+    }
+    
+    // Update bottom nav
+    updateBottomNavBySection(sectionId);
+    
+    // Close sidebar if open
+    closeSidebar();
+    
+    // Scroll to top
+    window.scrollTo(0, 0);
+};
+
+// ============================================
+// MOBILE CHAT BACK BUTTON
+// ============================================
+
+function showChatBackButton() {
+    const chatHeader = document.querySelector('.chat-header-info');
+    if (chatHeader && !document.querySelector('.chat-back-btn')) {
+        const backBtn = document.createElement('button');
+        backBtn.className = 'chat-back-btn';
+        backBtn.innerHTML = '<i class="ph ph-arrow-left"></i>';
+        backBtn.onclick = showConnectionsList;
+        chatHeader.parentElement.insertBefore(backBtn, chatHeader);
+    }
+}
+
+function showConnectionsList() {
+    const chatSidebar = document.querySelector('.chat-sidebar');
+    if (chatSidebar) {
+        chatSidebar.classList.add('mobile-visible');
+    }
+}
+
+// ============================================
+// MOBILE NOTIFICATIONS
+// ============================================
+
+function syncBadges() {
+    // Sync match badge
+    const matchBadge = document.getElementById('matchMenuBadge');
+    const bottomMatchBadge = document.getElementById('bottomMatchBadge');
+    if (matchBadge && bottomMatchBadge) {
+        bottomMatchBadge.style.display = matchBadge.style.display;
+        bottomMatchBadge.textContent = matchBadge.textContent;
+    }
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Sync badges periodically
+    setInterval(syncBadges, 1000);
+    
+    // Handle window resize
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            if (window.innerWidth > 768) {
+                closeSidebar();
+            }
+        }, 250);
+    });
+    
+    // Handle escape key to close sidebar
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeSidebar();
+        }
+    });
+});
+
+// Prevent zoom on double tap (iOS)
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(e) {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
+</script>
+
 </body>
 </html>

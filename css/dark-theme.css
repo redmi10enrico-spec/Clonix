@@ -292,3 +292,53 @@
 .dark-theme .skill-remove {
     color: #000000 !important;
 }
+
+/* Dark theme for mobile elements */
+.dark-theme .mobile-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-color: rgba(160, 209, 255, 0.2);
+}
+
+.dark-theme .hamburger-btn {
+    background: rgba(160, 209, 255, 0.1);
+    border-color: rgba(160, 209, 255, 0.2);
+    color: var(--text-main);
+}
+
+.dark-theme .hamburger-btn:hover {
+    background: rgba(160, 209, 255, 0.2);
+}
+
+.dark-theme .bottom-nav {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border-color: rgba(160, 209, 255, 0.2);
+}
+
+.dark-theme .bottom-nav-item {
+    color: var(--text-muted);
+}
+
+.dark-theme .bottom-nav-item.active {
+    color: var(--accent-orange);
+}
+
+.dark-theme .sidebar-overlay {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.dark-theme .sidebar-close {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.dark-theme .chat-back-btn {
+    background: rgba(160, 209, 255, 0.1);
+    border-color: rgba(160, 209, 255, 0.2);
+    color: var(--text-main);
+}
+
+.dark-theme .bottom-nav-badge {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);
+    color: white;
+}

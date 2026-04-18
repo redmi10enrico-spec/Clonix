@@ -297,6 +297,114 @@
     box-shadow: 0 4px 15px rgba(160, 209, 255, 0.4);
 }
 
+/* ===== ONLINE STATUS INDICATORS ===== */
+.connection-avatar {
+    position: relative;
+}
+
+.connection-avatar.online::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border-radius: 50%;
+    border: 2px solid #1e293b;
+}
+
+.online-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border-radius: 50%;
+    border: 2px solid #1e293b;
+}
+
+.online-indicator {
+    color: #22c55e;
+    font-size: 0.8rem;
+}
+
+.offline-indicator {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+}
+
+/* ===== TYPING INDICATOR ===== */
+.typing-indicator {
+    color: #a0d1ff;
+    font-size: 0.8rem;
+    font-style: italic;
+    animation: typingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes typingPulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* ===== UNREAD BADGE ===== */
+.unread-badge {
+    background: linear-gradient(135deg, #a0d1ff 0%, #6dd5fa 100%);
+    color: #0f172a;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* ===== CONNECTION STATUS ===== */
+.chat-header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chat-connection-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.chat-connection-status.connected {
+    background: #22c55e;
+}
+
+.chat-connection-status.disconnected {
+    background: #ef4444;
+}
+
+/* ===== READ RECEIPTS ===== */
+.message.sent .message-time::after {
+    content: ' ✓';
+    color: rgba(15, 23, 42, 0.6);
+}
+
+/* ===== ENCRYPTION BADGE ===== */
+.e2e-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    background: rgba(160, 209, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+}
+
+.e2e-badge i {
+    font-size: 0.8rem;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .chat-layout {

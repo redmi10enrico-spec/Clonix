@@ -11,6 +11,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Icone: Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Global API Configuration -->
+    <script>
+        window.API_CONFIG = {
+            BASE_URL: 'http://localhost:3001',
+            API_URL: 'http://localhost:3001/api',
+            SOCKET_URL: 'http://localhost:3001'
+        };
+    </script>
 </head>
 <body>
     <div class="auth-container">
@@ -204,7 +213,7 @@
         }
 
         // API Configuration
-        const API_BASE_URL = 'http://localhost:3001/api';
+        const API_BASE_URL = window.API_CONFIG.API_URL;
 
         // Form handlers
         async function handleLogin(event) {
