@@ -78,6 +78,7 @@ async function initDatabase() {
         await createNotificationsTable();
         await createConnectionsTable();
         await createMessagesTable();
+        await addSenderContentColumnIfMissing();
         await createProjectsTable();
         await createProjectVotesTable();
         
@@ -105,12 +106,15 @@ async function createUsersTable() {
             password_hash VARCHAR(255),
             google_id VARCHAR(255) UNIQUE,
             avatar_url VARCHAR(500),
+            nickname VARCHAR(80),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             last_login TIMESTAMP NULL,
             is_active BOOLEAN DEFAULT TRUE,
             email_verified BOOLEAN DEFAULT FALSE,
+            onboarding_completed BOOLEAN DEFAULT TRUE,
             skills JSON,
+            public_key TEXT,
             INDEX idx_email (email),
             INDEX idx_google_id (google_id),
             INDEX idx_skills ((CAST(skills AS CHAR(255) ARRAY)))
@@ -123,6 +127,8 @@ async function createUsersTable() {
         
         // Ensure skills column exists (for existing tables)
         await addSkillsColumnIfMissing();
+        await addPublicKeyColumnIfMissing();
+        await addUserProfileColumnsIfMissing();
         
     } catch (error) {
         console.error('Error creating users table:', error);
@@ -151,6 +157,55 @@ async function addSkillsColumnIfMissing() {
     } catch (error) {
         console.error('Error checking/adding skills column:', error);
         // Non-fatal: continue even if this fails
+    }
+}
+
+async function addPublicKeyColumnIfMissing() {
+    try {
+        const [columns] = await db.execute(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'users'
+            AND COLUMN_NAME = 'public_key'
+            AND TABLE_SCHEMA = DATABASE()
+        `);
+
+        if (columns.length === 0) {
+            await db.execute('ALTER TABLE users ADD COLUMN public_key TEXT');
+            console.log('✅ Added public_key column to users table');
+        } else {
+            console.log('✅ Public key column already exists');
+        }
+    } catch (error) {
+        console.error('Error checking/adding public_key column:', error);
+    }
+}
+
+async function addUserProfileColumnsIfMissing() {
+    const columnsToEnsure = [
+        { name: 'nickname', definition: 'VARCHAR(80) DEFAULT NULL' },
+        { name: 'onboarding_completed', definition: 'BOOLEAN DEFAULT TRUE' }
+    ];
+
+    for (const column of columnsToEnsure) {
+        try {
+            const [columns] = await db.execute(`
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'users'
+                AND COLUMN_NAME = ?
+                AND TABLE_SCHEMA = DATABASE()
+            `, [column.name]);
+
+            if (columns.length === 0) {
+                await db.execute(`ALTER TABLE users ADD COLUMN ${column.name} ${column.definition}`);
+                console.log(`Added ${column.name} column to users table`);
+            } else {
+                console.log(`${column.name} column already exists`);
+            }
+        } catch (error) {
+            console.error(`Error checking/adding ${column.name} column:`, error.message);
+        }
     }
 }
 
@@ -194,6 +249,54 @@ function validatePassword(password) {
     return password && password.length >= 8;
 }
 
+function sanitizeNickname(nickname) {
+    if (typeof nickname !== 'string') {
+        return '';
+    }
+
+    return nickname.trim().replace(/\s+/g, '-').toLowerCase();
+}
+
+function validateNickname(nickname) {
+    return /^[a-z0-9._-]{3,30}$/.test(nickname);
+}
+
+function serializeUser(user) {
+    const onboardingCompleted = user.onboarding_completed === true
+        || user.onboarding_completed === 1
+        || user.onboarding_completed === '1';
+
+    return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        nickname: user.nickname || null,
+        avatar_url: user.avatar_url || null,
+        skills: parseSkills(user.skills),
+        onboarding_completed: onboardingCompleted
+    };
+}
+
+function getPublicDisplayName(user = {}) {
+    return user.nickname || user.name || user.email || 'Utente';
+}
+
+async function getPublicUserIdentity(userId) {
+    const [rows] = await db.execute(
+        'SELECT id, name, email, nickname, avatar_url FROM users WHERE id = ?',
+        [userId]
+    );
+    const user = rows[0] || {};
+
+    return {
+        sender_name: user.name || null,
+        sender_email: user.email || null,
+        sender_nickname: user.nickname || null,
+        sender_avatar: user.avatar_url || null,
+        sender_display_name: getPublicDisplayName(user)
+    };
+}
+
 // API Routes
 
 // Register
@@ -230,13 +333,13 @@ app.post('/api/register', async (req, res) => {
 
         // Insert new user
         const [result] = await db.execute(
-            'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
-            [name, email, passwordHash]
+            'INSERT INTO users (name, email, password_hash, onboarding_completed) VALUES (?, ?, ?, FALSE)',
+            [name.trim(), email, passwordHash]
         );
 
         // Get created user
         const [users] = await db.execute(
-            'SELECT id, name, email, avatar_url, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed, created_at FROM users WHERE id = ?',
             [result.insertId]
         );
 
@@ -245,12 +348,7 @@ app.post('/api/register', async (req, res) => {
 
         res.status(201).json({
             message: 'User registered successfully',
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                avatar_url: user.avatar_url
-            },
+            user: serializeUser(user),
             token
         });
 
@@ -276,7 +374,7 @@ app.post('/api/login', async (req, res) => {
 
         // Find user (including skills for matching system)
         const [users] = await db.execute(
-            'SELECT id, name, email, password_hash, avatar_url, skills FROM users WHERE email = ? AND is_active = TRUE',
+            'SELECT id, name, email, password_hash, nickname, avatar_url, skills, onboarding_completed FROM users WHERE email = ? AND is_active = TRUE',
             [email]
         );
 
@@ -303,13 +401,7 @@ app.post('/api/login', async (req, res) => {
 
         res.json({
             message: 'Login successful',
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                avatar_url: user.avatar_url,
-                skills: user.skills ? JSON.parse(user.skills) : []
-            },
+            user: serializeUser(user),
             token
         });
 
@@ -330,7 +422,7 @@ app.post('/api/google-login', async (req, res) => {
 
         // Find or create user
         const [users] = await db.execute(
-            'SELECT id, name, email, avatar_url FROM users WHERE google_id = ? OR email = ?',
+            'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed FROM users WHERE google_id = ? OR email = ?',
             [googleId, email]
         );
 
@@ -339,12 +431,12 @@ app.post('/api/google-login', async (req, res) => {
         if (users.length === 0) {
             // Create new Google user
             const [result] = await db.execute(
-                'INSERT INTO users (name, email, google_id, avatar_url, email_verified) VALUES (?, ?, ?, ?, TRUE)',
+                'INSERT INTO users (name, email, google_id, avatar_url, email_verified, onboarding_completed) VALUES (?, ?, ?, ?, TRUE, FALSE)',
                 [name || email.split('@')[0], email, googleId, avatarUrl]
             );
 
             const [newUsers] = await db.execute(
-                'SELECT id, name, email, avatar_url FROM users WHERE id = ?',
+                'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed FROM users WHERE id = ?',
                 [result.insertId]
             );
             user = newUsers[0];
@@ -369,12 +461,7 @@ app.post('/api/google-login', async (req, res) => {
 
         res.json({
             message: 'Google login successful',
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                avatar_url: user.avatar_url
-            },
+            user: serializeUser(user),
             token
         });
 
@@ -388,7 +475,7 @@ app.post('/api/google-login', async (req, res) => {
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
         const [users] = await db.execute(
-            'SELECT id, name, email, avatar_url, created_at, last_login FROM users WHERE id = ? AND is_active = TRUE',
+            'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed, created_at, last_login FROM users WHERE id = ? AND is_active = TRUE',
             [req.user.id]
         );
 
@@ -396,8 +483,14 @@ app.get('/api/me', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
+        const user = users[0];
+
         res.json({
-            user: users[0]
+            user: {
+                ...serializeUser(user),
+                created_at: user.created_at,
+                last_login: user.last_login
+            }
         });
 
     } catch (error) {
@@ -543,7 +636,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
         
         // Find or create user in database
         const [users] = await db.execute(
-            'SELECT id, name, email, avatar_url FROM users WHERE google_id = ? OR email = ?',
+            'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed FROM users WHERE google_id = ? OR email = ?',
             [userInfo.id, userInfo.email]
         );
         
@@ -552,12 +645,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
         if (users.length === 0) {
             // Create new Google user
             const [result] = await db.execute(
-                'INSERT INTO users (name, email, google_id, avatar_url, email_verified) VALUES (?, ?, ?, ?, TRUE)',
+                'INSERT INTO users (name, email, google_id, avatar_url, email_verified, onboarding_completed) VALUES (?, ?, ?, ?, TRUE, FALSE)',
                 [userInfo.name, userInfo.email, userInfo.id, userInfo.picture]
             );
             
             const [newUsers] = await db.execute(
-                'SELECT id, name, email, avatar_url FROM users WHERE id = ?',
+                'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed FROM users WHERE id = ?',
                 [result.insertId]
             );
             user = newUsers[0];
@@ -581,9 +674,10 @@ app.get('/api/auth/google/callback', async (req, res) => {
         
         // Generate JWT token
         const token = generateToken(user);
+        const redirectUser = serializeUser(user);
         
         // Redirect to frontend with token and user data
-        const redirectUrl = `http://localhost:8081/auth-success.html?token=${token}&user=${encodeURIComponent(JSON.stringify(user))}`;
+        const redirectUrl = `http://localhost:8081/auth-success.html?token=${token}&user=${encodeURIComponent(JSON.stringify(redirectUser))}`;
         res.redirect(redirectUrl);
         
     } catch (error) {
@@ -618,9 +712,9 @@ const POINTS_PER_MATCH = 3;
  * @returns {Object} - { score, percentage, commonTags, totalPossible }
  */
 function matchScore(userA, userB) {
-    // Parse skills se sono stringhe JSON
-    const skillsA = Array.isArray(userA.skills) ? userA.skills : JSON.parse(userA.skills || '[]');
-    const skillsB = Array.isArray(userB.skills) ? userB.skills : JSON.parse(userB.skills || '[]');
+    // Parse skills in modo sicuro anche se il DB contiene valori vecchi o malformati
+    const skillsA = parseSkills(userA.skills);
+    const skillsB = parseSkills(userB.skills);
     
     // Normalizza a lowercase per confronto case-insensitive
     const normalizedA = skillsA.map(s => s.toLowerCase().trim());
@@ -676,22 +770,104 @@ function parseSkills(skillsString) {
     
     // Se è già un array (non dovrebbe succedere ma per sicurezza)
     if (Array.isArray(skillsString)) {
-        return skillsString;
+        return sanitizeSkills(skillsString);
+    }
+
+    if (typeof skillsString !== 'string') {
+        return [];
     }
     
     // Prova a fare parse come JSON
     try {
         const parsed = JSON.parse(skillsString);
         if (Array.isArray(parsed)) {
-            return parsed;
+            return sanitizeSkills(parsed);
         }
-        return [parsed.toString()];
+        if (parsed == null) {
+            return [];
+        }
+        return sanitizeSkills([parsed.toString()]);
     } catch (e) {
         // Non è JSON, tratta come CSV o stringa semplice
         if (skillsString.includes(',')) {
-            return skillsString.split(',').map(s => s.trim()).filter(s => s);
+            return sanitizeSkills(skillsString.split(','));
         }
-        return [skillsString.trim()];
+        return sanitizeSkills([skillsString]);
+    }
+}
+
+function sanitizeSkills(skills) {
+    if (!Array.isArray(skills)) {
+        return null;
+    }
+
+    const uniqueSkills = new Set();
+
+    skills.forEach(skill => {
+        if (typeof skill !== 'string') return;
+
+        const normalized = skill.trim().toLowerCase();
+        if (normalized.length > 0 && normalized.length <= 30) {
+            uniqueSkills.add(normalized);
+        }
+    });
+
+    return Array.from(uniqueSkills).slice(0, 20);
+}
+
+function normalizePositiveInt(value, fallback, max = 100) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+        return fallback;
+    }
+    return Math.min(parsed, max);
+}
+
+function normalizeOffset(value, fallback = 0, max = 1000) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return fallback;
+    }
+    return Math.min(parsed, max);
+}
+
+function sanitizeProjectTags(tags) {
+    if (!Array.isArray(tags)) {
+        return [];
+    }
+
+    const uniqueTags = new Set();
+
+    tags.forEach(tag => {
+        if (typeof tag !== 'string') return;
+
+        const normalized = tag.trim().toLowerCase();
+        if (normalized.length > 0 && normalized.length <= 24) {
+            uniqueTags.add(normalized);
+        }
+    });
+
+    return Array.from(uniqueTags).slice(0, 8);
+}
+
+function parseProjectTags(tags) {
+    if (!tags) {
+        return [];
+    }
+
+    if (Array.isArray(tags)) {
+        return sanitizeProjectTags(tags);
+    }
+
+    if (typeof tags !== 'string') {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(tags);
+        return sanitizeProjectTags(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+        return sanitizeProjectTags(tags.split(','));
     }
 }
 
@@ -708,7 +884,7 @@ async function getMatches(currentUserId, limit = 10) {
         
         // 1. Recupera l'utente corrente
         const [currentUserRows] = await db.execute(
-            'SELECT id, name, email, skills FROM users WHERE id = ?',
+            'SELECT id, name, email, nickname, avatar_url, skills FROM users WHERE id = ?',
             [currentUserId]
         );
         
@@ -731,7 +907,7 @@ async function getMatches(currentUserId, limit = 10) {
         
         // 2. Recupera tutti gli altri utenti (con skills non vuote) - ESCLUDI l'utente corrente
         const [otherUsersRows] = await db.execute(
-            'SELECT id, name, email, skills, created_at FROM users WHERE id != ? AND skills IS NOT NULL AND JSON_LENGTH(skills) > 0',
+            'SELECT id, name, email, nickname, avatar_url, skills, created_at FROM users WHERE id != ? AND skills IS NOT NULL AND JSON_LENGTH(skills) > 0',
             [currentUserId]
         );
         console.log(`🔍 getMatches: Trovati ${otherUsersRows.length} altri utenti (escluso id=${currentUserId})`);
@@ -745,7 +921,10 @@ async function getMatches(currentUserId, limit = 10) {
                 user: {
                     id: otherUser.id,
                     name: otherUser.name,
+                    nickname: otherUser.nickname,
+                    displayName: otherUser.nickname || otherUser.name,
                     email: otherUser.email,
+                    avatar_url: otherUser.avatar_url,
                     totalSkills: matchResult.userBSkills,
                     memberSince: otherUser.created_at
                 },
@@ -771,6 +950,9 @@ async function getMatches(currentUserId, limit = 10) {
             user: {
                 id: currentUser.id,
                 name: currentUser.name,
+                nickname: currentUser.nickname,
+                displayName: currentUser.nickname || currentUser.name,
+                avatar_url: currentUser.avatar_url,
                 skills: currentUser.skills || []
             },
             totalMatches: otherUsersRows.length,
@@ -816,7 +998,7 @@ async function getMatches(currentUserId, limit = 10) {
 app.get('/api/matches/:userId', authenticateToken, async (req, res) => {
     try {
         const userId = parseInt(req.params.userId);
-        const limit = parseInt(req.query.limit) || 10;
+        const limit = normalizePositiveInt(req.query.limit, 10, 50);
         
         // Verifica che l'utente richieda i propri match o sia admin
         if (req.user.id !== userId && req.user.email !== 'admin@clonix.com') {
@@ -864,6 +1046,9 @@ app.get('/api/matches/quick/:userId', authenticateToken, async (req, res) => {
         const quickMatches = result.matches.map(m => ({
             id: m.user.id,
             name: m.user.name,
+            nickname: m.user.nickname,
+            displayName: m.user.displayName,
+            avatar_url: m.user.avatar_url,
             percentage: m.compatibility.percentage,
             commonTags: m.compatibility.commonTags
         }));
@@ -908,17 +1093,27 @@ app.put('/api/users/:userId/skills', authenticateToken, async (req, res) => {
             });
         }
         
-        // Sanitizza e limita
-        const sanitizedSkills = skills
-            .map(s => s.trim().toLowerCase())
-            .filter(s => s.length > 0 && s.length <= 30)
-            .slice(0, 20); // Max 20 skills
+        // Sanitizza, deduplica e limita
+        const sanitizedSkills = sanitizeSkills(skills);
+        if (!sanitizedSkills) {
+            return res.status(400).json({
+                success: false,
+                error: 'Skills deve essere un array'
+            });
+        }
         
         // Salva nel database
-        await db.execute(
+        const [result] = await db.execute(
             'UPDATE users SET skills = ? WHERE id = ?',
             [JSON.stringify(sanitizedSkills), userId]
         );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Utente non trovato'
+            });
+        }
         
         console.log(`✅ Skills aggiornate per utente ${userId}:`, sanitizedSkills);
         
@@ -957,7 +1152,7 @@ app.get('/api/users/:userId/skills', authenticateToken, async (req, res) => {
             });
         }
         
-        const skills = rows[0].skills ? JSON.parse(rows[0].skills) : [];
+        const skills = parseSkills(rows[0].skills);
         
         res.json({
             success: true,
@@ -989,7 +1184,7 @@ app.get('/api/users/:userId', authenticateToken, async (req, res) => {
         }
         
         const [rows] = await db.execute(
-            'SELECT id, name, email, skills, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed, created_at FROM users WHERE id = ?',
             [userId]
         );
         
@@ -1005,10 +1200,7 @@ app.get('/api/users/:userId', authenticateToken, async (req, res) => {
         res.json({
             success: true,
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                skills: parseSkills(user.skills),
+                ...serializeUser(user),
                 created_at: user.created_at
             }
         });
@@ -1044,11 +1236,25 @@ app.put('/api/users/:userId/profile', authenticateToken, async (req, res) => {
         const params = [];
         
         if (name && name.trim()) {
+            if (name.trim().length > 255) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Il nome deve essere massimo 255 caratteri'
+                });
+            }
+
             updates.push('name = ?');
             params.push(name.trim());
         }
         
         if (email && email.trim()) {
+            if (!validateEmail(email.trim())) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Email non valida'
+                });
+            }
+
             updates.push('email = ?');
             params.push(email.trim());
         }
@@ -1146,6 +1352,7 @@ async function createMessagesTable() {
             sender_id INT NOT NULL,
             receiver_id INT NOT NULL,
             content TEXT NOT NULL,
+            sender_content TEXT DEFAULT NULL,
             encrypted BOOLEAN DEFAULT FALSE,
             encryption_type VARCHAR(50) DEFAULT NULL,
             is_read BOOLEAN DEFAULT FALSE,
@@ -1169,6 +1376,22 @@ async function createMessagesTable() {
 // ============================================
 // 🎯 TABELLE SPOTLIGHT (PROJECTS SHOWCASE)
 // ============================================
+
+async function addSenderContentColumnIfMissing() {
+    try {
+        await db.execute(`
+            ALTER TABLE messages
+            ADD COLUMN sender_content TEXT DEFAULT NULL AFTER content
+        `);
+        console.log('Messages sender_content column added');
+    } catch (error) {
+        if (error.code === 'ER_DUP_FIELDNAME') {
+            console.log('Messages sender_content column already exists');
+        } else {
+            console.error('Error adding sender_content column:', error.message);
+        }
+    }
+}
 
 // Crea tabella projects
 async function createProjectsTable() {
@@ -1354,7 +1577,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     try {
         const userId = parseInt(req.user.id);
         const status = req.query.status;
-        const limitNum = parseInt(req.query.limit) || 20;
+        const limitNum = normalizePositiveInt(req.query.limit, 20, 100);
         
         console.log(`🔔 GET /api/notifications - userId: ${userId}, status: ${status || 'ALL'}, limit: ${limitNum}`);
         
@@ -1364,8 +1587,8 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
         
         if (status) {
             query = `
-                SELECT n.*, 
-                        u.name as sender_name, u.email as sender_email
+                SELECT n.*,
+                        u.name as sender_name, u.nickname as sender_nickname, u.email as sender_email, u.avatar_url as sender_avatar
                  FROM notifications n
                  JOIN users u ON n.sender_id = u.id
                  WHERE n.receiver_id = ? AND n.status = ?
@@ -1375,8 +1598,8 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
             params = [userId, status];
         } else {
             query = `
-                SELECT n.*, 
-                        u.name as sender_name, u.email as sender_email
+                SELECT n.*,
+                        u.name as sender_name, u.nickname as sender_nickname, u.email as sender_email, u.avatar_url as sender_avatar
                  FROM notifications n
                  JOIN users u ON n.sender_id = u.id
                  WHERE n.receiver_id = ?
@@ -1412,19 +1635,19 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
 app.get('/api/notifications/sent', authenticateToken, async (req, res) => {
     try {
         const userId = parseInt(req.user.id);
-        const limit = parseInt(req.query.limit) || 20;
+        const limit = normalizePositiveInt(req.query.limit, 20, 100);
         
         console.log(`🔔 GET /api/notifications/sent - userId: ${userId}, limit: ${limit}`);
         
         const [notifications] = await db.execute(
-            `SELECT n.*, 
-                    u.name as receiver_name, u.email as receiver_email
+            `SELECT n.*,
+                    u.name as receiver_name, u.nickname as receiver_nickname, u.email as receiver_email, u.avatar_url as receiver_avatar
              FROM notifications n
              JOIN users u ON n.receiver_id = u.id
              WHERE n.sender_id = ?
              ORDER BY n.created_at DESC
-             LIMIT ?`,
-            [userId, limit]
+             LIMIT ${limit}`,
+            [userId]
         );
         
         res.json({
@@ -1546,7 +1769,7 @@ app.get('/api/connections', authenticateToken, async (req, res) => {
         
         const [connections] = await db.execute(
             `SELECT c.*, 
-                    u.id as other_user_id, u.name, u.email, u.skills,
+                    u.id as other_user_id, u.name, u.nickname, u.email, u.avatar_url, u.skills,
                     (SELECT COUNT(*) FROM messages WHERE sender_id = u.id AND receiver_id = ? AND is_read = 0) as unread_count
              FROM connections c
              JOIN users u ON (u.id = c.user1_id OR u.id = c.user2_id) AND u.id != ?
@@ -1558,6 +1781,7 @@ app.get('/api/connections', authenticateToken, async (req, res) => {
         const parsedConnections = connections.map(conn => ({
             ...conn,
             user_id: conn.other_user_id,
+            displayName: conn.nickname || conn.name,
             isOnline: connectedUsers.has(conn.other_user_id),
             skills: parseSkills(conn.skills)
         }));
@@ -1605,6 +1829,13 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
         const currentUserId = req.user.id;
         const otherUserId = parseInt(req.params.userId);
         const { limit = 50, offset = 0 } = req.query;
+
+        if (!Number.isInteger(otherUserId) || otherUserId < 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'ID utente non valido'
+            });
+        }
         
         // Verifica che esista una connessione (normalizza ID come nel DB: user1_id < user2_id)
         const minUserId = Math.min(currentUserId, otherUserId);
@@ -1623,17 +1854,22 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
         }
         
         // Recupera messaggi (LIMIT e OFFSET come numeri, non parametri)
-        const limitNum = parseInt(limit) || 50;
-        const offsetNum = parseInt(offset) || 0;
+        const limitNum = normalizePositiveInt(limit, 50, 100);
+        const offsetNum = normalizeOffset(offset);
         const [messages] = await db.execute(
-            `SELECT m.*, u.name as sender_name
+            `SELECT m.*,
+                    CASE
+                        WHEN m.encrypted = TRUE AND m.sender_id = ? AND m.sender_content IS NOT NULL THEN m.sender_content
+                        ELSE m.content
+                    END as encrypted_content,
+                    u.name as sender_name, u.nickname as sender_nickname, u.avatar_url as sender_avatar
              FROM messages m
              JOIN users u ON m.sender_id = u.id
              WHERE (m.sender_id = ? AND m.receiver_id = ?) 
                 OR (m.sender_id = ? AND m.receiver_id = ?)
              ORDER BY m.created_at ASC
              LIMIT ${limitNum} OFFSET ${offsetNum}`,
-            [currentUserId, otherUserId, otherUserId, currentUserId]
+            [currentUserId, currentUserId, otherUserId, otherUserId, currentUserId]
         );
         
         // Mark messages as read
@@ -1658,12 +1894,24 @@ app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
 app.post('/api/messages', authenticateToken, async (req, res) => {
     try {
         const senderId = req.user.id;
-        const { receiverId, content, encryptedContent } = req.body;
-        
-        if (!receiverId || (!content && !encryptedContent)) {
+        const { content, encryptedContent } = req.body;
+        const senderEncryptedContent = typeof req.body.senderEncryptedContent === 'string'
+            ? req.body.senderEncryptedContent.trim()
+            : null;
+        const receiverId = parseInt(req.body.receiverId);
+        const messageContentInput = encryptedContent || content;
+
+        if (!Number.isInteger(receiverId) || receiverId < 1 || typeof messageContentInput !== 'string' || !messageContentInput.trim()) {
             return res.status(400).json({
                 success: false,
                 error: 'Dati messaggio non validi'
+            });
+        }
+
+        if (messageContentInput.length > 5000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Messaggio troppo lungo'
             });
         }
         
@@ -1684,15 +1932,17 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
         }
         
         // Supporto E2E: se encryptedContent è presente, lo usiamo
-        const messageContent = encryptedContent || content;
+        const messageContent = messageContentInput.trim();
         const isEncrypted = !!encryptedContent;
         
         const [result] = await db.execute(
-            `INSERT INTO messages (sender_id, receiver_id, content, encrypted, encryption_type) 
-             VALUES (?, ?, ?, ?, ?)`,
-            [senderId, receiverId, messageContent.trim(), isEncrypted, isEncrypted ? 'E2E' : null]
+            `INSERT INTO messages (sender_id, receiver_id, content, sender_content, encrypted, encryption_type)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [senderId, receiverId, messageContent, senderEncryptedContent, isEncrypted, isEncrypted ? 'E2E' : null]
         );
         
+        const senderIdentity = await getPublicUserIdentity(senderId);
+
         // Emetti evento WebSocket al receiver E al sender
         const messageData = {
             id: result.insertId,
@@ -1700,7 +1950,8 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
             receiverId: receiverId,
             encryptedContent: encryptedContent,
             content: isEncrypted ? null : content,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            ...senderIdentity
         };
         io.to(`user_${receiverId}`).emit('new_message', messageData);
         io.to(`user_${senderId}`).emit('new_message', messageData); // Mittente vede il proprio messaggio
@@ -1789,6 +2040,11 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+const avatarUploadsDir = path.join(__dirname, '..', 'uploads', 'avatars');
+if (!fs.existsSync(avatarUploadsDir)) {
+    fs.mkdirSync(avatarUploadsDir, { recursive: true });
+}
+
 // Verifica che sharp sia disponibile (può fallire su Windows se non installato correttamente)
 let sharpAvailable = false;
 try {
@@ -1815,32 +2071,143 @@ const upload = multer({
     }
 });
 
+async function saveProfilePhoto(file) {
+    if (!file) {
+        return null;
+    }
+
+    const filename = `${uuidv4()}.webp`;
+    const filepath = path.join(avatarUploadsDir, filename);
+
+    if (sharpAvailable) {
+        const sharp = require('sharp');
+        await sharp(file.buffer)
+            .resize(480, 480, { fit: 'cover' })
+            .webp({ quality: 86, effort: 4 })
+            .toFile(filepath);
+    } else {
+        const ext = file.mimetype.split('/')[1] || 'jpg';
+        const fallbackFilename = `${uuidv4()}.${ext}`;
+        const fallbackPath = path.join(avatarUploadsDir, fallbackFilename);
+        fs.writeFileSync(fallbackPath, file.buffer);
+        return `/uploads/avatars/${fallbackFilename}`;
+    }
+
+    return `/uploads/avatars/${filename}`;
+}
+
+// POST /api/onboarding - Completa la configurazione iniziale del profilo
+app.post('/api/onboarding', authenticateToken, upload.single('profilePhoto'), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const cleanName = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+        const nickname = sanitizeNickname(req.body.nickname);
+        const skills = parseSkills(req.body.skills);
+
+        if (!cleanName || cleanName.length > 255) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nome obbligatorio e massimo 255 caratteri'
+            });
+        }
+
+        if (!validateNickname(nickname)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nickname non valido: usa 3-30 caratteri, lettere, numeri, punto, trattino o underscore'
+            });
+        }
+
+        if (!skills.length) {
+            return res.status(400).json({
+                success: false,
+                error: 'Aggiungi almeno una competenza'
+            });
+        }
+
+        const avatarUrl = await saveProfilePhoto(req.file);
+        const updates = [
+            'name = ?',
+            'nickname = ?',
+            'skills = ?',
+            'onboarding_completed = TRUE'
+        ];
+        const params = [cleanName, nickname, JSON.stringify(skills)];
+
+        if (avatarUrl) {
+            updates.push('avatar_url = ?');
+            params.push(avatarUrl);
+        }
+
+        params.push(userId);
+
+        await db.execute(
+            `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+            params
+        );
+
+        const [users] = await db.execute(
+            'SELECT id, name, email, nickname, avatar_url, skills, onboarding_completed FROM users WHERE id = ?',
+            [userId]
+        );
+
+        res.json({
+            success: true,
+            message: 'Configurazione completata',
+            user: serializeUser(users[0])
+        });
+    } catch (error) {
+        console.error('Error completing onboarding:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante il salvataggio della configurazione'
+        });
+    }
+});
+
 // POST /api/projects - Crea nuovo progetto
 app.post('/api/projects', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         const userId = req.user.id;
         const { title, description, link, tags } = req.body;
+        const cleanTitle = typeof title === 'string' ? title.trim() : '';
+        const cleanDescription = typeof description === 'string' ? description.trim() : '';
+        const cleanLink = typeof link === 'string' ? link.trim() : '';
         
         // Validazione
-        if (!title || !description) {
+        if (!cleanTitle || !cleanDescription) {
             return res.status(400).json({
                 success: false,
                 error: 'Titolo e descrizione sono obbligatori'
             });
         }
         
-        if (title.length > 100) {
+        if (cleanTitle.length > 100) {
             return res.status(400).json({
                 success: false,
                 error: 'Il titolo deve essere massimo 100 caratteri'
             });
         }
         
-        if (description.length > 120) {
+        if (cleanDescription.length > 120) {
             return res.status(400).json({
                 success: false,
                 error: 'La descrizione deve essere massimo 120 caratteri'
             });
+        }
+
+        if (cleanLink) {
+            try {
+                const parsedLink = new URL(cleanLink);
+                if (!['http:', 'https:'].includes(parsedLink.protocol)) {
+                    throw new Error('Protocollo non valido');
+                }
+            } catch (error) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Link progetto non valido'
+                });
+            }
         }
         
         // Verifica limite 3 progetti per utente
@@ -1899,22 +2266,13 @@ app.post('/api/projects', authenticateToken, upload.single('image'), async (req,
             imageUrl = '/assets/project-placeholder.svg';
         }
         
-        // Parse tags
-        let parsedTags = [];
-        if (tags) {
-            try {
-                parsedTags = JSON.parse(tags);
-                if (!Array.isArray(parsedTags)) parsedTags = [];
-            } catch (e) {
-                parsedTags = [];
-            }
-        }
+        const parsedTags = parseProjectTags(tags);
         
         // Inserisci progetto
         const [result] = await db.execute(
             `INSERT INTO projects (user_id, title, description, image_url, link, tags) 
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [userId, title.trim(), description.trim(), imageUrl, link || null, JSON.stringify(parsedTags)]
+            [userId, cleanTitle, cleanDescription, imageUrl, cleanLink || null, JSON.stringify(parsedTags)]
         );
         
         console.log(`✅ Progetto creato: ID=${result.insertId}, User=${userId}`);
@@ -1925,10 +2283,10 @@ app.post('/api/projects', authenticateToken, upload.single('image'), async (req,
             project: {
                 id: result.insertId,
                 user_id: userId,
-                title: title.trim(),
-                description: description.trim(),
+                title: cleanTitle,
+                description: cleanDescription,
                 image_url: imageUrl,
-                link: link || null,
+                link: cleanLink || null,
                 tags: parsedTags,
                 interested_count: 0,
                 collaborate_count: 0,
@@ -1950,8 +2308,8 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
     try {
         const { sort = 'recent', limit = 20, offset = 0 } = req.query;
         const userId = parseInt(req.user.id);
-        const limitNum = parseInt(limit) || 20;
-        const offsetNum = parseInt(offset) || 0;
+        const limitNum = normalizePositiveInt(limit, 20, 100);
+        const offsetNum = normalizeOffset(offset);
         
         console.log(`📊 GET /api/projects - userId: ${userId}, sort: ${sort}, limit: ${limitNum}, offset: ${offsetNum}`);
         
@@ -1960,7 +2318,7 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
         if (sort === 'popular') {
             // Ordina per popolarità
             query = `SELECT p.*, 
-                    u.name as author_name, u.avatar_url as author_avatar,
+                    u.name as author_name, u.nickname as author_nickname, COALESCE(u.nickname, u.name) as author_display_name, u.avatar_url as author_avatar,
                     pv.type as user_vote
              FROM projects p
              JOIN users u ON p.user_id = u.id
@@ -1971,7 +2329,7 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
         } else {
             // Ordina per data (default)
             query = `SELECT p.*, 
-                    u.name as author_name, u.avatar_url as author_avatar,
+                    u.name as author_name, u.nickname as author_nickname, COALESCE(u.nickname, u.name) as author_display_name, u.avatar_url as author_avatar,
                     pv.type as user_vote
              FROM projects p
              JOIN users u ON p.user_id = u.id
@@ -2002,7 +2360,7 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
             }
             return {
                 ...p,
-                tags: parsedTags
+                tags: parseProjectTags(p.tags)
             };
         });
         
@@ -2028,7 +2386,7 @@ app.get('/api/projects/my', authenticateToken, async (req, res) => {
         
         const [projects] = await db.execute(
             `SELECT p.*, 
-                    u.name as author_name, u.avatar_url as author_avatar
+                    u.name as author_name, u.nickname as author_nickname, COALESCE(u.nickname, u.name) as author_display_name, u.avatar_url as author_avatar
              FROM projects p
              JOIN users u ON p.user_id = u.id
              WHERE p.user_id = ?
@@ -2038,7 +2396,7 @@ app.get('/api/projects/my', authenticateToken, async (req, res) => {
         
         const parsedProjects = projects.map(p => ({
             ...p,
-            tags: p.tags ? JSON.parse(p.tags) : []
+            tags: parseProjectTags(p.tags)
         }));
         
         res.json({
@@ -2061,6 +2419,13 @@ app.post('/api/projects/:id/vote', authenticateToken, async (req, res) => {
         const userId = req.user.id;
         const projectId = parseInt(req.params.id);
         const { type } = req.body; // 'interested' o 'collaborate'
+
+        if (!Number.isInteger(projectId) || projectId < 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'ID progetto non valido'
+            });
+        }
         
         if (!['interested', 'collaborate'].includes(type)) {
             return res.status(400).json({
@@ -2106,7 +2471,7 @@ app.post('/api/projects/:id/vote', authenticateToken, async (req, res) => {
                 
                 // Decrementa contatore
                 await db.execute(
-                    `UPDATE projects SET ${type}_count = ${type}_count - 1 WHERE id = ?`,
+                    `UPDATE projects SET ${type}_count = GREATEST(${type}_count - 1, 0) WHERE id = ?`,
                     [projectId]
                 );
                 
@@ -2125,7 +2490,7 @@ app.post('/api/projects/:id/vote', authenticateToken, async (req, res) => {
                 // Aggiorna contatori
                 const oldType = existingVote[0].type;
                 await db.execute(
-                    `UPDATE projects SET ${oldType}_count = ${oldType}_count - 1, ${type}_count = ${type}_count + 1 WHERE id = ?`,
+                    `UPDATE projects SET ${oldType}_count = GREATEST(${oldType}_count - 1, 0), ${type}_count = ${type}_count + 1 WHERE id = ?`,
                     [projectId]
                 );
                 
@@ -2199,8 +2564,11 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
         
         // Elimina immagine se esiste
         if (project[0].image_url && !project[0].image_url.includes('placeholder')) {
-            const imagePath = path.join(__dirname, '..', project[0].image_url);
-            if (fs.existsSync(imagePath)) {
+            const projectRoot = path.resolve(__dirname, '..');
+            const safeRelativePath = project[0].image_url.replace(/^[/\\]+/, '');
+            const imagePath = path.resolve(projectRoot, safeRelativePath);
+
+            if (imagePath.startsWith(projectRoot) && fs.existsSync(imagePath)) {
                 fs.unlinkSync(imagePath);
             }
         }
@@ -2351,7 +2719,15 @@ io.on('connection', (socket) => {
     // Handle new message via socket
     socket.on('send_message', async (data, callback) => {
         try {
-            const { receiverId, encryptedContent } = data;
+            const receiverId = parseInt(data.receiverId);
+            const encryptedContent = typeof data.encryptedContent === 'string' ? data.encryptedContent.trim() : '';
+            const senderEncryptedContent = typeof data.senderEncryptedContent === 'string'
+                ? data.senderEncryptedContent.trim()
+                : null;
+
+            if (!Number.isInteger(receiverId) || receiverId < 1 || !encryptedContent || encryptedContent.length > 5000) {
+                return callback({ success: false, error: 'Dati messaggio non validi' });
+            }
             
             // Verify connection exists
             const minId = Math.min(userId, receiverId);
@@ -2368,16 +2744,19 @@ io.on('connection', (socket) => {
             
             // Save message to database (E2E encrypted)
             const [result] = await db.execute(
-                'INSERT INTO messages (sender_id, receiver_id, content, encrypted, encryption_type) VALUES (?, ?, ?, ?, ?)',
-                [userId, receiverId, encryptedContent, true, 'E2E']
+                'INSERT INTO messages (sender_id, receiver_id, content, sender_content, encrypted, encryption_type) VALUES (?, ?, ?, ?, ?, ?)',
+                [userId, receiverId, encryptedContent, senderEncryptedContent, true, 'E2E']
             );
+
+            const senderIdentity = await getPublicUserIdentity(userId);
             
             const messageData = {
                 id: result.insertId,
                 senderId: userId,
                 receiverId: receiverId,
                 encryptedContent: encryptedContent,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                ...senderIdentity
             };
             
             // Send to receiver AND sender

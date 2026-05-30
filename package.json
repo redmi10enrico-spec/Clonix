@@ -2,14 +2,14 @@
   "name": "clonix-auth",
   "version": "1.0.0",
   "description": "Clonix Authentication System with Aiven Database",
-  "main": "server.js",
+  "main": "scripts/server.js",
   "scripts": {
-    "start": "node server.js",
-    "start-local": "node server-sqlite.js",
-    "start-all": "node start-servers.js",
-    "dev": "nodemon server.js",
+    "start": "node scripts/server.js",
+    "start-local": "node scripts/server-sqlite.js",
+    "start-all": "node scripts/start-servers.js",
+    "dev": "nodemon scripts/server.js",
     "init-db": "node scripts/init-database.js",
-    "frontend": "node static-server.js"
+    "frontend": "node scripts/static-server.js"
   },
   "dependencies": {
     "axios": "^1.15.0",

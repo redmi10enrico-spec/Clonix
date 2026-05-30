@@ -61,6 +61,51 @@ class E2EEncryption {
         }
     }
 
+    async exportKeyPair() {
+        if (!this.keyPair) {
+            throw new Error('Key pair not generated');
+        }
+
+        const [publicKey, privateKey] = await Promise.all([
+            window.crypto.subtle.exportKey('jwk', this.keyPair.publicKey),
+            window.crypto.subtle.exportKey('jwk', this.keyPair.privateKey)
+        ]);
+
+        return { publicKey, privateKey };
+    }
+
+    async importKeyPair(keyData) {
+        if (!keyData?.publicKey || !keyData?.privateKey) {
+            throw new Error('Stored key pair is incomplete');
+        }
+
+        const [publicKey, privateKey] = await Promise.all([
+            window.crypto.subtle.importKey(
+                'jwk',
+                keyData.publicKey,
+                {
+                    name: 'RSA-OAEP',
+                    hash: 'SHA-256'
+                },
+                true,
+                ['encrypt']
+            ),
+            window.crypto.subtle.importKey(
+                'jwk',
+                keyData.privateKey,
+                {
+                    name: 'RSA-OAEP',
+                    hash: 'SHA-256'
+                },
+                true,
+                ['decrypt']
+            )
+        ]);
+
+        this.keyPair = { publicKey, privateKey };
+        return this.keyPair;
+    }
+
     // Import another user's public key
     async importPublicKey(publicKeyString) {
         try {
@@ -273,18 +318,23 @@ class ChatManager {
 
     async setupE2E() {
         try {
-            // Check if we have keys stored
             const storedKeys = localStorage.getItem(`e2e_keys_${this.currentUser.id}`);
-            
+
             if (storedKeys) {
-                // Import stored keys
-                const keyData = JSON.parse(storedKeys);
-                // Note: In production, use IndexedDB for key storage
-                // For this demo, we generate new keys
+                try {
+                    await this.e2e.importKeyPair(JSON.parse(storedKeys));
+                } catch (error) {
+                    console.warn('Stored E2E keys are invalid, generating a new pair:', error);
+                    localStorage.removeItem(`e2e_keys_${this.currentUser.id}`);
+                }
             }
-            
-            // Generate new key pair
-            await this.e2e.generateKeyPair();
+
+            if (!this.e2e.keyPair) {
+                await this.e2e.generateKeyPair();
+                const keyData = await this.e2e.exportKeyPair();
+                localStorage.setItem(`e2e_keys_${this.currentUser.id}`, JSON.stringify(keyData));
+            }
+
             const publicKey = await this.e2e.exportPublicKey();
             
             // Upload public key to server
@@ -297,7 +347,7 @@ class ChatManager {
                 body: JSON.stringify({ publicKey })
             });
             
-            console.log('✅ E2E keys generated and uploaded');
+            console.log('E2E keys loaded and public key uploaded');
         } catch (error) {
             console.error('Error setting up E2E:', error);
         }
@@ -405,13 +455,13 @@ class ChatManager {
         container.innerHTML = this.connections.map(conn => `
             <div class="connection-item ${this.currentChat?.userId === conn.user_id ? 'active' : ''}" 
                  data-user-id="${conn.user_id}"
-                 onclick="chatManager.openChat(${conn.user_id}, '${conn.name.replace(/'/g, "\\'")}')">
+                 onclick="window.chatManager?.openChat(${conn.user_id}, '${this.escapeJsString(this.getDisplayName(conn))}')">
                 <div class="connection-avatar ${conn.isOnline ? 'online' : ''}">
-                    ${conn.name.charAt(0).toUpperCase()}
+                    ${this.avatarHTML(conn)}
                     ${conn.isOnline ? '<span class="online-dot"></span>' : ''}
                 </div>
                 <div class="connection-info">
-                    <h4>${conn.name}</h4>
+                    <h4>${this.escapeHtml(this.getDisplayName(conn))}</h4>
                     <p>${conn.isOnline ? '🟢 Online' : '⚪ Offline'}</p>
                 </div>
                 ${conn.unread_count > 0 ? `<span class="unread-badge">${conn.unread_count}</span>` : ''}
@@ -419,9 +469,37 @@ class ChatManager {
         `).join('');
     }
 
+    getDisplayName(user = {}) {
+        return user.displayName || user.display_name || user.nickname || user.name || user.email || 'Utente';
+    }
+
+    getInitials(name = 'Utente') {
+        return String(name)
+            .trim()
+            .split(/\s+/)
+            .map(part => part[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2) || '?';
+    }
+
+    escapeJsString(value = '') {
+        return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    avatarHTML(user = {}) {
+        const displayName = this.getDisplayName(user);
+        if (user.avatar_url) {
+            return `<img src="${this.escapeHtml(user.avatar_url)}" alt="${this.escapeHtml(displayName)}" class="identity-avatar-img" onerror="this.replaceWith(document.createTextNode('${this.escapeJsString(this.getInitials(displayName))}'))">`;
+        }
+        return this.escapeHtml(this.getInitials(displayName));
+    }
+
     // Open chat with specific user
     async openChat(userId, userName) {
-        this.currentChat = { userId, userName, messages: [] };
+        const connection = this.connections.find(conn => conn.user_id === userId || conn.other_user_id === userId);
+        const displayName = this.getDisplayName(connection || { name: userName });
+        this.currentChat = { userId, userName: displayName, avatar_url: connection?.avatar_url, messages: [] };
         
         // Update UI
         document.querySelectorAll('.connection-item').forEach(el => {
@@ -436,8 +514,8 @@ class ChatManager {
         
         if (chatHeader) {
             chatHeader.style.display = 'flex';
-            document.getElementById('chatHeaderName').textContent = userName;
-            document.getElementById('chatHeaderAvatar').textContent = userName.charAt(0).toUpperCase();
+            document.getElementById('chatHeaderName').textContent = displayName;
+            document.getElementById('chatHeaderAvatar').innerHTML = this.avatarHTML(connection || { name: displayName });
             this.updateChatHeaderStatus();
         }
         
@@ -510,10 +588,17 @@ class ChatManager {
             if (data.success) {
                 // Decrypt messages
                 const decryptedMessages = await Promise.all(
-                    data.messages.map(async (msg) => ({
-                        ...msg,
-                        decryptedContent: await this.e2e.decryptMessage(msg.encrypted_content)
-                    }))
+                    data.messages.map(async (msg) => {
+                        const encryptedPayload = msg.encrypted_content || msg.encryptedContent || msg.content;
+
+                        return {
+                            ...msg,
+                            encrypted_content: encryptedPayload,
+                            decryptedContent: msg.encrypted
+                                ? await this.e2e.decryptMessage(encryptedPayload)
+                                : (msg.content || '')
+                        };
+                    })
                 );
                 
                 this.currentChat.messages = decryptedMessages;
@@ -545,11 +630,18 @@ class ChatManager {
                 hour: '2-digit', 
                 minute: '2-digit' 
             });
+            const senderIdentity = isSent ? this.currentUser : {
+                ...this.currentChat,
+                name: msg.sender_name || this.currentChat.name,
+                nickname: msg.sender_nickname || this.currentChat.nickname,
+                avatar_url: msg.sender_avatar || this.currentChat.avatar_url
+            };
             
             return `
                 <div class="message ${isSent ? 'sent' : 'received'}">
+                    ${isSent ? '' : `<div class="message-avatar">${this.avatarHTML(senderIdentity)}</div>`}
                     <div class="message-content">
-                        <p>${this.escapeHtml(msg.decryptedContent || msg.encrypted_content)}</p>
+                        <p>${this.escapeHtml(msg.decryptedContent || msg.content || '[Messaggio non disponibile]')}</p>
                         <span class="message-time">${time}${msg.is_read && isSent ? ' ✓' : ''}</span>
                     </div>
                 </div>
@@ -591,6 +683,10 @@ class ChatManager {
                 content, 
                 this.currentChat.publicKey
             );
+            const senderEncryptedContent = await this.e2e.encryptMessage(
+                content,
+                await this.e2e.exportPublicKey()
+            );
             
             // Clear input immediately for better UX
             input.value = '';
@@ -598,7 +694,8 @@ class ChatManager {
             // Send via socket
             this.socket.emit('send_message', {
                 receiverId: this.currentChat.userId,
-                encryptedContent: encryptedContent
+                encryptedContent: encryptedContent,
+                senderEncryptedContent: senderEncryptedContent
             }, (response) => {
                 if (response.success) {
                     // Add to local messages
@@ -641,7 +738,10 @@ class ChatManager {
                 encrypted_content: encryptedContent,
                 decryptedContent: decryptedContent,
                 created_at: createdAt,
-                is_read: true
+                is_read: true,
+                sender_name: data.sender_name,
+                sender_nickname: data.sender_nickname,
+                sender_avatar: data.sender_avatar
             };
             
             this.currentChat.messages.push(newMessage);
@@ -717,6 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if we're on the main page with chat
     if (document.getElementById('chatSection')) {
         chatManager = new ChatManager();
+        window.chatManager = chatManager;
         
         // Setup event listeners
         setupChatEventListeners();
@@ -755,9 +856,9 @@ function setupChatEventListeners() {
 
 // Expose for onclick handlers
 window.loadConnections = function() {
-    chatManager?.loadConnections();
+    window.chatManager?.loadConnections();
 };
 
 window.openChat = function(userId, userName) {
-    chatManager?.openChat(userId, userName);
+    window.chatManager?.openChat(userId, userName);
 };

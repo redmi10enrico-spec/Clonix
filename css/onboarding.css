@@ -1,0 +1,242 @@
+/* FIRST-RUN ONBOARDING */
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.76);
+    backdrop-filter: blur(16px);
+}
+
+.onboarding-panel {
+    width: min(920px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    background:
+        linear-gradient(145deg, rgba(255, 144, 102, 0.08), rgba(96, 165, 250, 0.04) 42%, rgba(10, 10, 10, 0) 70%),
+        #111111;
+    color: var(--text-main);
+    border: 1px solid #303030;
+    border-radius: 20px;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62);
+    padding: 28px;
+}
+
+.onboarding-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.onboarding-kicker {
+    margin: 0 0 6px;
+    color: #ffb088;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.onboarding-header h1 {
+    margin: 0;
+    font-size: 1.7rem;
+    line-height: 1.2;
+}
+
+.onboarding-step {
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(255, 144, 102, 0.13);
+    color: #ffb088;
+    border: 1px solid rgba(255, 144, 102, 0.26);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.onboarding-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+}
+
+.onboarding-photo-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.onboarding-photo-picker {
+    min-height: 240px;
+    border: 1px solid #343434;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.onboarding-photo-picker:hover {
+    border-color: #ff9066;
+    background: rgba(255, 144, 102, 0.055);
+    transform: translateY(-1px);
+}
+
+.onboarding-photo-preview {
+    width: 112px;
+    height: 112px;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #ff9066, #f97316);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 2.4rem;
+    font-weight: 800;
+}
+
+.onboarding-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.onboarding-photo-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #f5f5f5;
+    font-weight: 800;
+}
+
+.onboarding-avatar-future {
+    border: 1px dashed #3a3a3a;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    color: #8b8b8b;
+    padding: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.onboarding-fields {
+    min-width: 0;
+}
+
+.onboarding-skill-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+}
+
+.onboarding-skill-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.onboarding-skill-suggestions button {
+    border: 1px solid #343434;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    color: #d6d6d6;
+    padding: 7px 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.onboarding-skill-suggestions button:hover {
+    border-color: #ff9066;
+    color: #ffb088;
+    background: rgba(255, 144, 102, 0.09);
+}
+
+.onboarding-skills {
+    min-height: 42px;
+}
+
+.onboarding-error {
+    min-height: 22px;
+    margin: 12px 0 0;
+    color: #fb7185;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.onboarding-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid #2f2f2f;
+}
+
+.onboarding-panel .form-input {
+    background: rgba(0, 0, 0, 0.32);
+    border-color: #343434;
+    color: #f5f5f5;
+}
+
+.onboarding-panel .form-input:focus {
+    border-color: #ff9066;
+    box-shadow: 0 0 0 3px rgba(255, 144, 102, 0.12);
+}
+
+.onboarding-panel .form-input::placeholder {
+    color: #737373;
+}
+
+.onboarding-panel .form-group label {
+    color: #c7c7c7;
+}
+
+.onboarding-panel .btn-secondary {
+    background: #1b1b1b;
+    border-color: #353535;
+    color: #f5f5f5;
+}
+
+.onboarding-panel .btn-secondary:hover {
+    border-color: #ff9066;
+    color: #ffb088;
+}
+
+@media (max-width: 760px) {
+    .onboarding-overlay {
+        padding: 12px;
+        align-items: flex-start;
+    }
+
+    .onboarding-panel {
+        max-height: calc(100vh - 24px);
+        padding: 20px;
+    }
+
+    .onboarding-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .onboarding-photo-picker {
+        min-height: 190px;
+    }
+
+    .onboarding-skill-row {
+        grid-template-columns: 1fr;
+    }
+
+    .onboarding-actions .btn-primary {
+        width: 100%;
+    }
+}

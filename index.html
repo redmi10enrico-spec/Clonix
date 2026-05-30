@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/chat-system.css">
     <link rel="stylesheet" href="css/personalization-safe.css">
     <link rel="stylesheet" href="css/spotlight.css">
+    <link rel="stylesheet" href="css/onboarding.css">
     <link rel="stylesheet" href="css/responsive.css">
     <!-- Font: Plus Jakarta Sans per un look moderno -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -81,6 +82,7 @@
                 
                 // Update current user data (persistent in localStorage)
                 localStorage.setItem('currentUser', JSON.stringify(data.user));
+                window.__clonixNeedsOnboarding = data.user && data.user.onboarding_completed === false;
                 console.log('=== AUTH CHECK COMPLETE ===');
                 
             } catch (error) {
@@ -107,6 +109,74 @@
     <!-- Dynamic Background Container -->
     <div id="backgroundContainer">
         <!-- Background will be dynamically inserted here -->
+    </div>
+
+    <div class="onboarding-overlay" id="onboardingOverlay" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" style="display: none;">
+        <section class="onboarding-panel">
+            <div class="onboarding-header">
+                <div>
+                    <p class="onboarding-kicker">Prima configurazione</p>
+                    <h1 id="onboardingTitle">Completa il tuo profilo</h1>
+                </div>
+                <div class="onboarding-step">1/1</div>
+            </div>
+
+            <form id="onboardingForm" class="onboarding-form" onsubmit="saveOnboarding(event)">
+                <div class="onboarding-grid">
+                    <div class="onboarding-photo-column">
+                        <label class="onboarding-photo-picker" for="onboardingPhoto">
+                            <span class="onboarding-photo-preview" id="onboardingPhotoPreview">?</span>
+                            <span class="onboarding-photo-action">
+                                <i class="ph ph-camera"></i>
+                                Foto profilo
+                            </span>
+                        </label>
+                        <input type="file" id="onboardingPhoto" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+
+                        <button type="button" class="onboarding-avatar-future" disabled>
+                            <i class="ph ph-sparkle"></i>
+                            Avatar personalizzato in arrivo
+                        </button>
+                    </div>
+
+                    <div class="onboarding-fields">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="onboardingName">Nome</label>
+                                <input type="text" id="onboardingName" class="form-input" maxlength="255" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="onboardingNickname">Nickname</label>
+                                <input type="text" id="onboardingNickname" class="form-input" maxlength="30" required placeholder="es. mrossi">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="onboardingSkillInput">Competenze</label>
+                            <div class="onboarding-skill-row">
+                                <input type="text" id="onboardingSkillInput" class="form-input" maxlength="30" placeholder="Aggiungi una competenza">
+                                <button type="button" class="btn-secondary btn-small" onclick="addOnboardingSkill()">Aggiungi</button>
+                            </div>
+                            <div class="onboarding-skill-suggestions">
+                                <button type="button" onclick="addSuggestedOnboardingSkill('coding')">Coding</button>
+                                <button type="button" onclick="addSuggestedOnboardingSkill('design')">Design</button>
+                                <button type="button" onclick="addSuggestedOnboardingSkill('marketing')">Marketing</button>
+                                <button type="button" onclick="addSuggestedOnboardingSkill('startup')">Startup</button>
+                            </div>
+                            <div class="skills-container onboarding-skills" id="onboardingSkillsContainer"></div>
+                        </div>
+
+                        <p class="onboarding-error" id="onboardingError" aria-live="polite"></p>
+                    </div>
+                </div>
+
+                <div class="onboarding-actions">
+                    <button type="submit" class="btn-primary" id="onboardingSaveBtn">
+                        Salva e continua
+                    </button>
+                </div>
+            </form>
+        </section>
     </div>
 
     <!-- Mobile Header -->
@@ -1531,15 +1601,295 @@
 
     // Skills management
     let userSkills = [];
+    let skillsSaveTimer = null;
 
     function loadSkills() {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
         if (currentUser && currentUser.skills) {
-            userSkills = currentUser.skills;
+            userSkills = normalizeSkills(currentUser.skills);
         } else {
             userSkills = [];
         }
         renderSkills();
+    }
+
+    function normalizeSkills(skills) {
+        if (!Array.isArray(skills)) return [];
+
+        const uniqueSkills = new Set();
+        skills.forEach(skill => {
+            if (typeof skill !== 'string') return;
+
+            const normalized = skill.trim().toLowerCase();
+            if (normalized.length > 0 && normalized.length <= 30) {
+                uniqueSkills.add(normalized);
+            }
+        });
+
+        return Array.from(uniqueSkills).slice(0, 20);
+    }
+
+    function getDisplayName(user = {}) {
+        return user.displayName || user.display_name || user.nickname || user.name || user.email || 'Utente';
+    }
+
+    function getInitials(name = 'Utente') {
+        return String(name)
+            .trim()
+            .split(/\s+/)
+            .map(part => part[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2) || '?';
+    }
+
+    function escapeJsString(value = '') {
+        return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function avatarMarkup(user = {}, className = '') {
+        const displayName = getDisplayName(user);
+        const avatarUrl = user.avatar_url || user.avatar || user.author_avatar || user.sender_avatar || user.receiver_avatar;
+        if (avatarUrl) {
+            return `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="identity-avatar-img ${className}" onerror="this.replaceWith(document.createTextNode('${escapeJsString(getInitials(displayName))}'))">`;
+        }
+        return escapeHtml(getInitials(displayName));
+    }
+
+    let onboardingSkills = [];
+    let onboardingPhotoFile = null;
+
+    function initializeOnboarding() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const nameInput = document.getElementById('onboardingName');
+        const nicknameInput = document.getElementById('onboardingNickname');
+        const skillInput = document.getElementById('onboardingSkillInput');
+        const photoInput = document.getElementById('onboardingPhoto');
+
+        if (currentUser) {
+            if (nameInput) nameInput.value = currentUser.name || '';
+            if (nicknameInput) {
+                nicknameInput.value = currentUser.nickname || generateNicknameFromUser(currentUser);
+            }
+            onboardingSkills = normalizeSkills(currentUser.skills || []);
+            updateOnboardingPhotoPreview(currentUser);
+            renderOnboardingSkills();
+        }
+
+        if (skillInput && !skillInput.dataset.onboardingBound) {
+            skillInput.dataset.onboardingBound = 'true';
+            skillInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addOnboardingSkill();
+                }
+            });
+        }
+
+        if (photoInput && !photoInput.dataset.onboardingBound) {
+            photoInput.dataset.onboardingBound = 'true';
+            photoInput.addEventListener('change', handleOnboardingPhotoChange);
+        }
+    }
+
+    function generateNicknameFromUser(user) {
+        const source = user.name || user.email?.split('@')[0] || 'utente';
+        return source
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9._-]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 30) || 'utente';
+    }
+
+    function maybeShowOnboarding() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (currentUser && currentUser.onboarding_completed === false) {
+            showOnboarding();
+        }
+    }
+
+    function showOnboarding() {
+        initializeOnboarding();
+        const overlay = document.getElementById('onboardingOverlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => document.getElementById('onboardingName')?.focus(), 50);
+        }
+    }
+
+    function hideOnboarding() {
+        const overlay = document.getElementById('onboardingOverlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    function updateOnboardingPhotoPreview(user = {}) {
+        const preview = document.getElementById('onboardingPhotoPreview');
+        if (!preview) return;
+
+        if (user.avatar_url) {
+            preview.innerHTML = `<img src="${escapeHtml(user.avatar_url)}" alt="Foto profilo">`;
+            return;
+        }
+
+        const initial = (user.name || user.email || '?').charAt(0).toUpperCase();
+        preview.textContent = initial;
+    }
+
+    function handleOnboardingPhotoChange(event) {
+        const file = event.target.files?.[0];
+        const errorEl = document.getElementById('onboardingError');
+        if (errorEl) errorEl.textContent = '';
+
+        if (!file) {
+            onboardingPhotoFile = null;
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            if (errorEl) errorEl.textContent = 'Seleziona un file immagine valido';
+            event.target.value = '';
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            if (errorEl) errorEl.textContent = 'La foto deve pesare massimo 10MB';
+            event.target.value = '';
+            return;
+        }
+
+        onboardingPhotoFile = file;
+        const preview = document.getElementById('onboardingPhotoPreview');
+        if (preview) {
+            preview.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Anteprima foto profilo">`;
+        }
+    }
+
+    function addSuggestedOnboardingSkill(skill) {
+        const input = document.getElementById('onboardingSkillInput');
+        if (input) input.value = skill;
+        addOnboardingSkill();
+    }
+
+    function addOnboardingSkill() {
+        const input = document.getElementById('onboardingSkillInput');
+        const errorEl = document.getElementById('onboardingError');
+        const skill = input?.value?.trim().toLowerCase();
+        if (errorEl) errorEl.textContent = '';
+
+        if (!skill) return;
+
+        const nextSkills = normalizeSkills([...onboardingSkills, skill]);
+        if (nextSkills.length === onboardingSkills.length) {
+            if (errorEl) errorEl.textContent = 'Competenza già presente o non valida';
+            return;
+        }
+
+        onboardingSkills = nextSkills;
+        input.value = '';
+        renderOnboardingSkills();
+    }
+
+    function removeOnboardingSkill(index) {
+        onboardingSkills.splice(index, 1);
+        renderOnboardingSkills();
+    }
+
+    function renderOnboardingSkills() {
+        const container = document.getElementById('onboardingSkillsContainer');
+        if (!container) return;
+
+        container.innerHTML = onboardingSkills.map((skill, index) => `
+            <div class="skill-item">
+                <span>${escapeHtml(skill)}</span>
+                <button type="button" class="skill-remove" onclick="removeOnboardingSkill(${index})" title="Rimuovi competenza">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    async function saveOnboarding(event) {
+        event.preventDefault();
+
+        const token = localStorage.getItem('authToken');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const name = document.getElementById('onboardingName')?.value?.trim();
+        const nickname = document.getElementById('onboardingNickname')?.value?.trim();
+        const errorEl = document.getElementById('onboardingError');
+        const saveBtn = document.getElementById('onboardingSaveBtn');
+
+        if (errorEl) errorEl.textContent = '';
+
+        if (!token || !currentUser?.id) {
+            if (errorEl) errorEl.textContent = 'Sessione non valida, effettua di nuovo il login';
+            return;
+        }
+
+        if (!name || !nickname) {
+            if (errorEl) errorEl.textContent = 'Nome e nickname sono obbligatori';
+            return;
+        }
+
+        const cleanNickname = nickname.toLowerCase().replace(/\s+/g, '-');
+        if (!/^[a-z0-9._-]{3,30}$/.test(cleanNickname)) {
+            if (errorEl) errorEl.textContent = 'Nickname: usa 3-30 caratteri, lettere, numeri, punto, trattino o underscore';
+            return;
+        }
+
+        if (onboardingSkills.length === 0) {
+            if (errorEl) errorEl.textContent = 'Aggiungi almeno una competenza';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('nickname', cleanNickname);
+        formData.append('skills', JSON.stringify(normalizeSkills(onboardingSkills)));
+        if (onboardingPhotoFile) {
+            formData.append('profilePhoto', onboardingPhotoFile);
+        }
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Salvataggio...';
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/onboarding`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Errore durante il salvataggio');
+            }
+
+            const updatedUser = data.user;
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            userSkills = normalizeSkills(updatedUser.skills || []);
+            onboardingSkills = [...userSkills];
+            renderSkills();
+            updateWelcomeMessage();
+            loadProfileData();
+            hideOnboarding();
+            showToast('success', 'Profilo pronto', 'Configurazione salvata nel database');
+        } catch (error) {
+            if (errorEl) errorEl.textContent = error.message;
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Salva e continua';
+            }
+        }
     }
 
     function renderSkills() {
@@ -1565,14 +1915,19 @@
         const input = document.getElementById('skillInput');
         if (!input) return;
         
-        const skill = input.value.trim();
+        const skill = input.value.trim().toLowerCase();
         
         if (!skill) {
             alert('Inserisci una competenza');
             return;
         }
+
+        if (skill.length > 30) {
+            alert('La competenza deve essere massimo 30 caratteri');
+            return;
+        }
         
-        if (userSkills.includes(skill)) {
+        if (userSkills.some(existingSkill => existingSkill.toLowerCase() === skill)) {
             alert('Questa competenza è già presente');
             return;
         }
@@ -1583,6 +1938,7 @@
         
         // Auto-save to localStorage
         saveSkillsToStorage();
+        scheduleSkillsSync();
         
         console.log('Skill added:', skill);
     }
@@ -1591,14 +1947,57 @@
         const removed = userSkills.splice(index, 1);
         renderSkills();
         saveSkillsToStorage();
+        scheduleSkillsSync();
         console.log('Skill removed:', removed);
     }
 
     function saveSkillsToStorage() {
-        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
         if (currentUser) {
-            currentUser.skills = userSkills;
+            currentUser.skills = normalizeSkills(userSkills);
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        }
+    }
+
+    function scheduleSkillsSync() {
+        clearTimeout(skillsSaveTimer);
+        skillsSaveTimer = setTimeout(() => {
+            persistSkillsToDatabase();
+        }, 300);
+    }
+
+    async function persistSkillsToDatabase() {
+        const token = localStorage.getItem('authToken');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+
+        if (!token || !currentUser?.id) {
+            console.warn('Skills not synced: missing authenticated user');
+            return false;
+        }
+
+        try {
+            const response = await fetch(`${window.API_CONFIG.API_URL}/users/${currentUser.id}/skills`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ skills: normalizeSkills(userSkills) })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Errore salvataggio skills');
+            }
+
+            userSkills = normalizeSkills(data.skills || userSkills);
+            saveSkillsToStorage();
+            renderSkills();
+            console.log('✅ Skills sincronizzate nel DB:', userSkills);
+            return true;
+        } catch (error) {
+            console.warn('⚠️ Skills salvate solo localmente, sync DB fallita:', error.message);
+            return false;
         }
     }
 
@@ -1667,10 +2066,14 @@
         if (surnameInput) surnameInput.value = lastName;
         if (emailInput) emailInput.value = user.email || '';
         
-        // Update avatar initial
+        // Update avatar preview
         const avatarElement = document.querySelector('.profile-avatar-large');
-        if (avatarElement && firstName) {
-            avatarElement.textContent = firstName.charAt(0).toUpperCase();
+        if (avatarElement) {
+            if (user.avatar_url) {
+                avatarElement.innerHTML = `<img src="${escapeHtml(user.avatar_url)}" alt="Foto profilo">`;
+            } else if (firstName) {
+                avatarElement.textContent = firstName.charAt(0).toUpperCase();
+            }
         }
         
         // Renderizza skills
@@ -1737,7 +2140,7 @@
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ skills: userSkills })
+                body: JSON.stringify({ skills: normalizeSkills(userSkills) })
             });
             
             if (!skillsResponse.ok) {
@@ -1747,7 +2150,7 @@
             
             // 3. Aggiorna localStorage
             currentUser.name = fullName;
-            currentUser.skills = userSkills;
+            currentUser.skills = normalizeSkills(userSkills);
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             
             console.log('✅ Profilo salvato nel database:', currentUser);
@@ -1896,7 +2299,7 @@
         
         container.innerHTML = matches.map((match, index) => {
             const colorClass = colors[index % colors.length];
-            const initial = match.user.name.charAt(0).toUpperCase();
+            const displayName = getDisplayName(match.user);
             const percentage = match.compatibility.percentage;
             const commonTags = match.compatibility.commonTags || [];
             
@@ -1907,9 +2310,9 @@
             
             return `
                 <div class="match-item" data-match-id="${match.user.id}">
-                    <div class="match-avatar ${colorClass}">${initial}</div>
+                    <div class="match-avatar ${colorClass}">${avatarMarkup(match.user)}</div>
                     <div class="match-info">
-                        <h4>${match.user.name}</h4>
+                        <h4>${escapeHtml(displayName)}</h4>
                         <p class="match-goal">${match.user.totalSkills || 0} competenze</p>
                         <div class="match-tags">
                             ${commonTags.slice(0, 3).map(tag => 
@@ -1926,7 +2329,7 @@
                             </div>
                         </div>
                     </div>
-                    <button class="btn-primary btn-small" onclick="connectWithUser(${match.user.id}, '${match.user.name}')">
+                    <button class="btn-primary btn-small" onclick="connectWithUser(${match.user.id}, '${escapeJsString(displayName)}')">
                         Connetti
                     </button>
                 </div>
@@ -2061,13 +2464,13 @@
             connectionsList.innerHTML = '<p class="empty-mini">Nessuna connessione attiva</p>';
         } else {
             connectionsList.innerHTML = connections.map(conn => {
-                const initials = conn.name ? conn.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
                 const userId = conn.user_id || conn.other_user_id || conn.id;
+                const displayName = getDisplayName(conn);
                 return `
-                    <div class="mini-match-item" onclick="openChat(${userId}, '${conn.name || 'Utente'}')" style="cursor: pointer;" title="Clicca per chattare">
-                        <div class="mini-avatar">${initials}</div>
+                    <div class="mini-match-item" onclick="openChat(${userId}, '${escapeJsString(displayName)}')" style="cursor: pointer;" title="Clicca per chattare">
+                        <div class="mini-avatar">${avatarMarkup(conn)}</div>
                         <div class="mini-info">
-                            <h5>${conn.name || 'Utente'}</h5>
+                            <h5>${escapeHtml(displayName)}</h5>
                             <p>${conn.skills ? conn.skills.slice(0, 3).join(', ') : ''}</p>
                         </div>
                         <span class="mini-status active" title="Connessione attiva">
@@ -2083,6 +2486,13 @@
             sentRequestsList.innerHTML = '<p class="empty-mini">Nessuna richiesta inviata</p>';
         } else {
             sentRequestsList.innerHTML = sentRequests.map(req => {
+                const receiver = {
+                    name: req.receiver_name,
+                    nickname: req.receiver_nickname,
+                    avatar_url: req.receiver_avatar,
+                    email: req.receiver_email
+                };
+                const displayName = getDisplayName(receiver);
                 const statusIcon = req.status === 'pending' ? 'ph-clock' : 
                                   req.status === 'accepted' ? 'ph-check' : 'ph-x';
                 const statusClass = req.status === 'pending' ? 'pending' : 
@@ -2092,9 +2502,9 @@
                 
                 return `
                     <div class="mini-match-item">
-                        <div class="mini-avatar pending">?</div>
+                        <div class="mini-avatar pending">${avatarMarkup(receiver)}</div>
                         <div class="mini-info">
-                            <h5>${req.receiver_name || 'Utente'}</h5>
+                            <h5>${escapeHtml(displayName)}</h5>
                             <p class="mini-status-text ${statusClass}">
                                 <i class="ph ${statusIcon}"></i> ${statusText}
                             </p>
@@ -2135,7 +2545,7 @@
         
         container.innerHTML = matches.map((match, index) => {
             const colorClass = colors[index % colors.length];
-            const initial = match.user.name.charAt(0).toUpperCase();
+            const displayName = getDisplayName(match.user);
             const percentage = match.compatibility.percentage;
             const commonTags = match.compatibility.commonTags || [];
             
@@ -2153,7 +2563,7 @@
             return `
                 <div class="match-card-innovative ${currentViewMode}" data-match-id="${match.user.id}">
                     <div class="match-card-header">
-                        <div class="match-avatar-large ${colorClass}">${initial}</div>
+                        <div class="match-avatar-large ${colorClass}">${avatarMarkup(match.user)}</div>
                         <div class="match-compatibility-badge ${percentClass}">
                             <span class="percent-value">${percentage}%</span>
                             <span class="percent-label">compatibilità</span>
@@ -2161,8 +2571,8 @@
                     </div>
                     
                     <div class="match-card-body">
-                        <h3 class="match-name">${match.user.name}</h3>
-                        <p class="match-meta">${match.user.totalSkills || 0} competenze • ${match.user.email}</p>
+                        <h3 class="match-name">${escapeHtml(displayName)}</h3>
+                        <p class="match-meta">${match.user.totalSkills || 0} competenze - ${escapeHtml(match.user.name || match.user.email || '')}</p>
                         
                         <div class="common-tags-section">
                             <p class="tags-label">🎯 Tag in comune:</p>
@@ -2182,10 +2592,10 @@
                     </div>
                     
                     <div class="match-card-actions">
-                        <button class="btn-action secondary" onclick="messageMatch(${match.user.id}, '${match.user.name}')">
+                        <button class="btn-action secondary" onclick="messageMatch(${match.user.id}, '${escapeJsString(displayName)}')">
                             <i class="ph ph-chat-circle"></i>
                         </button>
-                        <button class="btn-action primary" onclick="connectWithUser(${match.user.id}, '${match.user.name}')">
+                        <button class="btn-action primary" onclick="connectWithUser(${match.user.id}, '${escapeJsString(displayName)}')">
                             <i class="ph ph-user-plus"></i> Connetti
                         </button>
                     </div>
@@ -2352,6 +2762,8 @@
         loadProfileData();
         
         // ⏱️ Avvia tracking tempo di studio
+        initializeOnboarding();
+        maybeShowOnboarding();
         startStudyTimeTracking();
         
         // 🎯 Carica i match e il conteggio totale dopo un breve delay
@@ -2552,6 +2964,13 @@ function renderNotifications() {
     }
     
     list.innerHTML = notificationsData.map(notif => {
+        const sender = {
+            name: notif.sender_name,
+            nickname: notif.sender_nickname,
+            avatar_url: notif.sender_avatar,
+            email: notif.sender_email
+        };
+        const senderDisplayName = getDisplayName(sender);
         const isUnread = notif.status === 'pending';
         const iconClass = notif.type === 'match_request' ? 'match' : 
                          notif.type === 'match_accepted' ? 'accepted' : 
@@ -2584,13 +3003,13 @@ function renderNotifications() {
         if (notif.type === 'spotlight_vote') {
             messageText = notif.message || 'ha votato il tuo progetto';
         } else {
-            messageText = `<strong>${notif.sender_name}</strong> ${getNotificationText(notif.type)}`;
+            messageText = `<strong>${escapeHtml(senderDisplayName)}</strong> ${getNotificationText(notif.type)}`;
         }
         
         return `
             <div class="notification-item ${isUnread ? 'unread' : ''}" data-id="${notif.id}">
                 <div class="notification-icon ${iconClass}">
-                    <i class="ph ${icon}"></i>
+                    ${notif.sender_avatar ? avatarMarkup(sender) : `<i class="ph ${icon}"></i>`}
                 </div>
                 <div class="notification-content">
                     <p>${messageText}</p>
@@ -2612,6 +3031,13 @@ function renderSentNotifications() {
     }
     
     list.innerHTML = sentNotificationsData.map(notif => {
+        const receiver = {
+            name: notif.receiver_name,
+            nickname: notif.receiver_nickname,
+            avatar_url: notif.receiver_avatar,
+            email: notif.receiver_email
+        };
+        const receiverDisplayName = getDisplayName(receiver);
         const iconClass = notif.type === 'match_request' ? 'match' : 
                          notif.type === 'match_accepted' ? 'accepted' : 
                          notif.type === 'match_rejected' ? 'rejected' : 'message';
@@ -2627,10 +3053,10 @@ function renderSentNotifications() {
         return `
             <div class="notification-item sent" data-id="${notif.id}">
                 <div class="notification-icon ${iconClass}">
-                    <i class="ph ${icon}"></i>
+                    ${notif.receiver_avatar ? avatarMarkup(receiver) : `<i class="ph ${icon}"></i>`}
                 </div>
                 <div class="notification-content">
-                    <p><strong>${notif.receiver_name}</strong> ${getNotificationText(notif.type)}</p>
+                    <p><strong>${escapeHtml(receiverDisplayName)}</strong> ${getNotificationText(notif.type)}</p>
                     <span>
                         ${timeAgo}
                         <span class="notification-status ${statusClass}">${statusText}</span>
@@ -2724,45 +3150,6 @@ async function markAllRead() {
 // ============================================
 // 🍞 TOAST NOTIFICATIONS SYSTEM
 // ============================================
-
-function showToast(type, title, message, duration = 5000) {
-    const container = document.getElementById('toastContainer');
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    
-    const icons = {
-        success: 'ph-check-circle',
-        error: 'ph-x-circle',
-        info: 'ph-info'
-    };
-    
-    toast.innerHTML = `
-        <div class="toast-icon">
-            <i class="ph ${icons[type]}"></i>
-        </div>
-        <div class="toast-content">
-            <h4>${title}</h4>
-            <p>${message}</p>
-        </div>
-        <button class="toast-close" onclick="this.parentElement.remove()">
-            <i class="ph ph-x"></i>
-        </button>
-    `;
-    
-    container.appendChild(toast);
-    
-    // Riproduci suono per notifiche importanti
-    if (type === 'success' || type === 'info') {
-        playNotificationSound();
-    }
-    
-    // Auto-dismiss
-    setTimeout(() => {
-        toast.classList.add('hiding');
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
 
 // Suono notifica (soft beep)
 function playNotificationSound() {
@@ -2918,6 +3305,10 @@ function renderRequestsList(elementId, notifications, type) {
     }
     
     container.innerHTML = notifications.map(n => {
+        const person = type === 'received'
+            ? { name: n.sender_name, nickname: n.sender_nickname, avatar_url: n.sender_avatar, email: n.sender_email }
+            : { name: n.receiver_name, nickname: n.receiver_nickname, avatar_url: n.receiver_avatar, email: n.receiver_email };
+        const displayName = getDisplayName(person);
         const isPending = n.status === 'pending';
         const statusClass = isPending ? 'pending' : (n.status === 'accepted' ? 'accepted' : 'rejected');
         const statusText = isPending ? '⏳ In attesa' : (n.status === 'accepted' ? '✅ Accettata' : '❌ Rifiutata');
@@ -2925,10 +3316,10 @@ function renderRequestsList(elementId, notifications, type) {
         return `
             <div class="request-item ${statusClass}">
                 <div class="request-avatar">
-                    <i class="ph ph-user-circle"></i>
+                    ${person.avatar_url ? avatarMarkup(person) : '<i class="ph ph-user-circle"></i>'}
                 </div>
                 <div class="request-info">
-                    <h4>${n.sender_name || n.receiver_name || 'Utente'}</h4>
+                    <h4>${escapeHtml(displayName)}</h4>
                     <p class="request-email">${n.sender_email || n.receiver_email || ''}</p>
                     <span class="request-status ${statusClass}">${statusText}</span>
                     <span class="request-date">${new Date(n.created_at).toLocaleDateString('it-IT')}</span>
@@ -2957,7 +3348,13 @@ let chatRefreshInterval = null;
 
 // Apri chat con utente
 function openChat(userId, userName) {
-    currentChatUser = { id: userId, name: userName };
+    if (window.chatManager && typeof window.chatManager.openChat === 'function') {
+        return window.chatManager.openChat(userId, userName);
+    }
+
+    const connection = connectionsData.find(conn => Number(conn.user_id) === Number(userId));
+    currentChatUser = connection || { id: userId, user_id: userId, name: userName };
+    const displayName = getDisplayName(currentChatUser);
     
     // Mostra sezione chat
     showSection('chatSection');
@@ -2967,8 +3364,8 @@ function openChat(userId, userName) {
     document.getElementById('chatInputArea').style.display = 'flex';
     
     // Aggiorna header
-    document.getElementById('chatHeaderName').textContent = userName;
-    document.getElementById('chatHeaderAvatar').textContent = userName.charAt(0).toUpperCase();
+    document.getElementById('chatHeaderName').textContent = displayName;
+    document.getElementById('chatHeaderAvatar').innerHTML = avatarMarkup(currentChatUser);
     document.getElementById('chatHeaderStatus').textContent = 'Online';
     
     // Carica messaggi
@@ -3012,9 +3409,16 @@ function renderMessages(messages) {
     container.innerHTML = messages.map(msg => {
         const isMe = msg.sender_id === currentUser.id;
         const time = new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        const senderIdentity = isMe ? currentUser : {
+            ...currentChatUser,
+            name: msg.sender_name || currentChatUser?.name,
+            nickname: msg.sender_nickname || currentChatUser?.nickname,
+            avatar_url: msg.sender_avatar || currentChatUser?.avatar_url
+        };
         
         return `
             <div class="message ${isMe ? 'sent' : 'received'}">
+                ${isMe ? '' : `<div class="message-avatar">${avatarMarkup(senderIdentity)}</div>`}
                 <div class="message-content">
                     <p>${escapeHtml(msg.content)}</p>
                     <span class="message-time">${time}</span>
@@ -3102,6 +3506,10 @@ function escapeHtml(text) {
 let connectionsData = [];
 
 async function loadConnections() {
+    if (window.chatManager && typeof window.chatManager.loadConnections === 'function') {
+        return window.chatManager.loadConnections();
+    }
+
     try {
         const token = localStorage.getItem('authToken');
         
@@ -3130,18 +3538,21 @@ function renderConnections() {
         return;
     }
     
-    container.innerHTML = connectionsData.map(conn => `
-        <div class="connection-item" onclick="openChat(${conn.other_user_id}, '${conn.name}')">
-            <div class="connection-avatar">${conn.name.charAt(0).toUpperCase()}</div>
+    container.innerHTML = connectionsData.map(conn => {
+        const displayName = getDisplayName(conn);
+        return `
+        <div class="connection-item" onclick="openChat(${conn.other_user_id}, '${escapeJsString(displayName)}')">
+            <div class="connection-avatar">${avatarMarkup(conn)}</div>
             <div class="connection-info">
-                <h4>${conn.name}</h4>
+                <h4>${escapeHtml(displayName)}</h4>
                 <p>${conn.skills?.slice(0, 3).join(', ') || 'Nessuna skill'}</p>
             </div>
-            <button class="btn-icon" onclick="event.stopPropagation(); openChat(${conn.other_user_id}, '${conn.name}')">
+            <button class="btn-icon" onclick="event.stopPropagation(); openChat(${conn.other_user_id}, '${escapeJsString(displayName)}')">
                 <i class="ph ph-chat-circle"></i>
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // ============================================
@@ -3398,6 +3809,7 @@ function createProjectCard(project, currentUserId, isOwner = false) {
     const tagsHtml = (project.tags || []).map(tag => 
         `<span class="project-tag">${escapeHtml(tag)}</span>`
     ).join('');
+    const authorDisplayName = project.author_display_name || project.author_nickname || project.author_name || 'Utente';
     
     const isVotedInterested = project.user_vote === 'interested';
     const isVotedCollaborate = project.user_vote === 'collaborate';
@@ -3430,10 +3842,10 @@ function createProjectCard(project, currentUserId, isOwner = false) {
                 
                 <div class="project-author">
                     <img src="${project.author_avatar || '/assets/default-avatar.svg'}" 
-                         alt="${escapeHtml(project.author_name)}" 
+                         alt="${escapeHtml(authorDisplayName)}"
                          class="author-avatar"
                          onerror="this.src='/assets/default-avatar.svg'">
-                    <span class="author-name">${escapeHtml(project.author_name)}</span>
+                    <span class="author-name">${escapeHtml(authorDisplayName)}</span>
                 </div>
                 
                 ${tagsHtml ? `<div class="project-tags">${tagsHtml}</div>` : ''}
@@ -3607,6 +4019,8 @@ async function submitProject(event) {
             const newProject = {
                 ...data.project,
                 author_name: currentUser.name,
+                author_nickname: currentUser.nickname,
+                author_display_name: getDisplayName(currentUser),
                 author_avatar: currentUser.avatar_url,
                 user_vote: null
             };
@@ -3803,38 +4217,52 @@ function updateCharCounts() {
 // TOAST NOTIFICATIONS
 // ============================================
 
-function showToast(message, type = 'info') {
-    // Usa il sistema toast esistente se disponibile
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(message, type);
-        return;
-    }
-    
-    // Fallback semplice
+function showToast(arg1, arg2 = 'info', arg3 = null, duration = 5000) {
+    const validTypes = ['success', 'error', 'info', 'warning'];
+    const isFullSignature = validTypes.includes(arg1) && typeof arg3 === 'string';
+    const type = isFullSignature && validTypes.includes(arg1) ? arg1 : (validTypes.includes(arg2) ? arg2 : 'info');
+    const title = isFullSignature ? arg2 : ({
+        success: 'Successo',
+        error: 'Errore',
+        warning: 'Attenzione',
+        info: 'Info'
+    }[type] || 'Info');
+    const message = isFullSignature ? arg3 : String(arg1 || '');
     const container = document.getElementById('toastContainer') || document.body;
     
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: 12px;
-        background: ${type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6'};
-        color: white;
-        font-weight: 600;
-        z-index: 9999;
-        animation: slideIn 0.3s ease;
+    toast.className = `toast ${type}`;
+    
+    const icons = {
+        success: 'ph-check-circle',
+        error: 'ph-x-circle',
+        warning: 'ph-warning-circle',
+        info: 'ph-info'
+    };
+    
+    toast.innerHTML = `
+        <div class="toast-icon">
+            <i class="ph ${icons[type] || icons.info}"></i>
+        </div>
+        <div class="toast-content">
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(message)}</p>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+            <i class="ph ph-x"></i>
+        </button>
     `;
-    
+
     container.appendChild(toast);
-    
+
+    if (type === 'success' || type === 'info') {
+        playNotificationSound();
+    }
+
     setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease';
+        toast.classList.add('hiding');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, duration);
 }
 
 // ============================================

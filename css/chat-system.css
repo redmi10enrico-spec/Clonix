@@ -192,6 +192,9 @@
 
 .message {
     max-width: 70%;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
     animation: messageSlide 0.3s ease;
 }
 
@@ -212,6 +215,21 @@
 
 .message.received {
     align-self: flex-start;
+}
+
+.message-avatar {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(160, 209, 255, 0.16);
+    color: #a0d1ff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    border: 1px solid rgba(160, 209, 255, 0.28);
+    overflow: hidden;
 }
 
 .message-content {

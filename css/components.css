@@ -67,6 +67,14 @@
     margin-bottom: 1rem;
 }
 
+.identity-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+    display: block;
+}
+
 .bg-blue { background: #eff6ff; color: #3b82f6; }
 .bg-orange { background: #fff7ed; color: #f97316; }
 .bg-green { background: #f0fdf4; color: #22c55e; }
